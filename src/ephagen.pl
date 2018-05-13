@@ -135,7 +135,7 @@ BEGIN {
 	}
 
 if(getAbsPath($baseDir)) {
-	die "Can't resolve path for ephagen install directory: '$baseDir'\n";
+	die "Can't resolve path for ephagen install directory: '$baseDir'\nExit status 1";
 }
 
 my $scriptName=(File::Spec->splitpath($0))[2];
@@ -171,12 +171,12 @@ sub checkFile($;$) {
 	my $file = shift;
 	return if(-f $file);
 	my $label = shift;
-	die "Can't find" . (defined($label) ? " $label" : "") . " file: '$file'";
+	die "Can't find" . (defined($label) ? " $label" : "") . " file: '$file'\nExit status 1";
 }
 
 sub checkFileArg($$) {
 	my ($file,$label) = @_;
-	die "Must specify $label file\n" unless(defined($file));
+	die "Must specify $label file\nExit status 1" unless(defined($file));
 	checkFile($file,$label);
 	}
 
@@ -184,7 +184,7 @@ sub makeAbsoluteFilePaths(\$) {
 	my ($filePathRef) = @_;
 	my ($v,$fileDir,$fileName) = File::Spec->splitpath($$filePathRef);
 	if (getAbsPath($fileDir)) {
-#		die "Can't resolve directory path for '$fileDir' from input file argument: '$$filePathRef'\n";
+#		die "Can't resolve directory path for '$fileDir' from input file argument: '$$filePathRef'\nExit status 1";
 		}
 	$$filePathRef = File::Spec->catfile($fileDir,$fileName);
 	}
@@ -196,14 +196,13 @@ checkFileArg($inputBam,"input BAM");
 $refFile = abs_path($refFile);
 makeAbsoluteFilePaths($refFile);
 checkFileArg($refFile,"reference FASTA");
-
 if (defined($vcfREF)) {
 	if (defined $vcf_definition{$vcfREF}) {
 		$refVCF = File::Spec->catfile($refVCFDir, $vcf_definition{$vcfREF});
 		makeAbsoluteFilePaths($refVCF);
 		checkFileArg($refVCF,"reference $vcfREF VCF file");
 		} else {
-		die "Can't resolve value for option --vcf_ref. It should be one of the following: ",join(", ", keys %vcf_definition);
+		die "Can't resolve value for option --vcf_ref. It should be one of the following: ",join(", ", keys %vcf_definition),"\nExit status 1";
 		}
 	} else {
 	$refVCF = abs_path($refVCF);
@@ -213,11 +212,11 @@ if (defined($vcfREF)) {
 
 $outFile = abs_path($outFile);
 makeAbsoluteFilePaths($outFile);
-if (open(TEST, ">", $outFile)) {close TEST} else {die "Can't use file $outFile as output"}
+if (open(TEST, ">", $outFile)) {close TEST} else {die "Can't use file $outFile as output\nExit status 1"}
 
 $outVCF = abs_path($outVCF);
 makeAbsoluteFilePaths($outVCF);
-if (open(TEST, ">", $outVCF)) {close TEST} else {die "Can't use file $outVCF as output"}
+if (open(TEST, ">", $outVCF)) {close TEST} else {die "Can't use file $outVCF as output\nExit status 1"}
 
 #-------------------------------------------------------------------------------------------
 #---    CHECK BAM AND REFERENCE FASTA INDEX FILE
@@ -230,7 +229,7 @@ sub checkBamIndex($) {
 		$ifile = $file;
 		$ifile =~ s/\.bam$/\.bai/;
 		if(! -f $ifile) {
-			die "Can't find index for BAM file '$file'\n";
+			die "Can't find index for BAM file '$file'\nExit status 1";
 			}
 		}
 	}
@@ -241,16 +240,16 @@ sub checkFaIndex($) {
 	my ($file) = @_;
 	my $ifile = $file . ".fai";
 	if(! -f $ifile) {
-		die "Can't find index for fasta file '$file'";
+		die "Can't find index for fasta file '$file'\nExit status 1";
 		}
 	# check that fai file isn't improperly formatted (a la the GATK bundle NCBI 37 fai files)
-	open(my $FH,"< $ifile") || die "Can't open fai file '$ifile'";
+	open(my $FH,"< $ifile") || die "Can't open fai file '$ifile'\nExit status 1";
 	my $lineno = 1;
 	while(<$FH>) {
 		chomp;
 		my @F=split();
 		if(scalar(@F) != 5) {
-		die "Unexpected format for line number '$lineno' of fasta index file: '$ifile'\n\tRe-running fasta indexing may fix the issue. To do so, run: \"samtools faidx $file\"";
+		die "Unexpected format for line number '$lineno' of fasta index file: '$ifile'\n\tRe-running fasta indexing may fix the issue. To do so, run: \"samtools faidx $file\"\nExit status 1";
 		}
 		$lineno++;
 		}
@@ -267,7 +266,7 @@ sub chechAssemblyConcordance {
 	my @chromosomes = $sam->features (-type=>'chromosome');
 	my $faidx_file = $refFile . ".fai";
 	
-	open (my $VCF, "<", $vcfFile) || die "Can't open $vcfFile";
+	open (my $VCF, "<", $vcfFile) || die "Can't open $vcfFile\nExit status 1";
 	
 	my @target_chr;
 	while (<$VCF>) {
@@ -279,18 +278,18 @@ sub chechAssemblyConcordance {
 			my $ref = $_;
 #			print "$fields[0]\t$fields[1]\n";
 			if ($ref->{'seqid'} eq $fields[0]) {
-				die "Mutation '$fields[2]' start position is out of contig size at input VCF file $vcfFile" if $fields[1] > $ref->{'end'};
-				die "Mutation '$fields[2]' start position is out of contig size at input VCF file $vcfFile" if $fields[1] < $ref->{'start'};
+				die "Mutation '$fields[2]' start position is out of contig size at input VCF file $vcfFile\nExit status 1" if $fields[1] > $ref->{'end'};
+				die "Mutation '$fields[2]' start position is out of contig size at input VCF file $vcfFile\nExit status 1" if $fields[1] < $ref->{'start'};
 				$flag = 1;
 				}
 			} @chromosomes;
-		die "Contig '$fields[0]' from input $vcfFile can't be found in input BAM file header" if $flag eq 0;
+		die "Contig '$fields[0]' from input $vcfFile can't be found in input BAM file header\nExit status 1" if $flag eq 0;
 		push (@target_chr, $fields[0]) unless grep(/^$fields[0]$/, @target_chr);
 		}
 	
 	close($VCF);
 	
-	open (my $FAIDX, "<", $faidx_file) || die "Can't open $faidx_file";
+	open (my $FAIDX, "<", $faidx_file) || die "Can't open $faidx_file\nExit status 1";
 	
 	while (<$FAIDX>) {
 		chomp;
@@ -302,10 +301,10 @@ sub chechAssemblyConcordance {
 			if ($fields[0] eq $ref->{'seqid'}) {
 				if ($fields[1] eq $ref->{'end'}) {
 					$flag = 1;
-					} else {die "Contig '$fields[0]' sizes from input BAM header and input reference file does not match"}
+					} else {die "Contig '$fields[0]' sizes from input BAM header and input reference file does not match\nExit status 1"}
 				}
 			} @chromosomes;
-		die "Contig '$fields[0]' from input $refFile can't be found in input BAM file header" if $flag eq 0;
+		die "Contig '$fields[0]' from input $refFile can't be found in input BAM file header\nExit status 1" if $flag eq 0;
 		}
 	
 	close($FAIDX);
@@ -424,10 +423,10 @@ sub load_vcf {
 		next if m!^#!;
 		my @mas = split/\t/;
 		my $REF = $mas[3];
-		die "Malformed reference allele at input VCF file $file for variant '$mas[2]'" if length($REF) < 1;
+		die "Malformed reference allele at input VCF file $file for variant '$mas[2]'\nExit status 1" if length($REF) < 1;
 		my $pos = $mas[1];
 		my $ALT = $mas[4];
-		die "Malformed reference allele at input VCF file $file for variant '$mas[2]'" if length($ALT) < 1;
+		die "Malformed reference allele at input VCF file $file for variant '$mas[2]'\nExit status 1" if length($ALT) < 1;
 		my @alt = split/,/, $ALT;
 		my @info = split/;/, $mas[7];
 		for (my $alt_i = 0; $alt_i < scalar @alt; $alt_i++) {
@@ -440,13 +439,13 @@ sub load_vcf {
 			foreach my $arg (@info) {
 				if ($arg =~ /COUNT=(\S+)/) {
 					my @count_mas = split/,/, $1;
-					die "Can't collect COUNT for each alternative allele for mutation '$mas[2]' in input VCF file $file" if ((scalar @count_mas) ne (scalar @alt));
+					die "Can't collect COUNT for each alternative allele for mutation '$mas[2]' in input VCF file $file\nExit status 1" if ((scalar @count_mas) ne (scalar @alt));
 					$count = $count_mas[$alt_i];
-					die "COUNT field should contain only INTEGER non-zero values" if (int($count) ne $count);
-					die "COUNT field should contain only INTEGER non-zero values" if ($count eq 0);
+					die "COUNT field should contain only INTEGER non-zero values\nExit status 1" if (int($count) ne $count);
+					die "COUNT field should contain only INTEGER non-zero values\nExit status 1" if ($count eq 0);
 					}
 				}
-			die "Can't collect COUNT for allele $ALT for variant $mas[2] in input VCF file $file" if ($count eq 0);
+			die "Can't collect COUNT for allele $ALT for variant $mas[2] in input VCF file $file\nExit status 1" if ($count eq 0);
 			$mut{$mas[0]} = [@{$mut{$mas[0]}}, [$position, $mas[3], $alt_slim, [$mas[2], $pos, $REF, $alt[$alt_i], '', $mas[0]], $count, {}]] if defined $mut{$mas[0]};
 			$mut{$mas[0]} = [[$position, $mas[3], $alt_slim, [$mas[2], $pos, $REF, $alt[$alt_i], '', $mas[0]], $count, {}]] unless defined $mut{$mas[0]};
 			}
@@ -656,7 +655,7 @@ sub downsample {
 	my $lower		= shift;
 	my $higher		= shift;
 	my $mutation_hash_c	= dclone $mutation_hash;
-	die unless $higher > $lower;
+	die "Exit status 1" unless $higher > $lower;
 	my @ref_mas;
 	for (my $i = 1; $i <= $lower; $i++) {
 		push (@ref_mas, 1);
@@ -727,7 +726,7 @@ sub format_af {
 			}
 		$i = $i * 10;
 		++$c;
-		die "Too small number '$f'" if $c > 100;
+		die "Too small number '$f'\nExit status 1" if $c > 100;
 		}
 	}
 
@@ -824,7 +823,7 @@ sub downsample_config_check {
 	my $string		= shift;
 	$string =~ s/\/|;/ /g;
 	my @config = pairs(split/\s/, $string);
-	map {die "downsample config: $_->[0] > $_->[1]\n" if ($_->[0] > $_->[1])} @config;
+	map {die "downsample config: $_->[0] > $_->[1]\nExit status 1" if ($_->[0] > $_->[1])} @config;
 	}
 
 #head($inputBam, $refFile, $refVCF, $outFile, $outVCF, $version, $cmdline);
@@ -837,8 +836,8 @@ sub head {
 	my $version	= shift;
 	my $command	= shift;
 
-	open (my $file_output, ">", $outFile) or die "Can't open file $outFile for writing";
-	open (my $file_vcf, ">", $outVCF) or die "Can't open file $outVCF for writing";
+	open (my $file_output, ">", $outFile) or die "Can't open file $outFile for writing\nExit status 1";
+	open (my $file_vcf, ">", $outVCF) or die "Can't open file $outVCF for writing\nExit status 1";
 
 	my $mut = load_vcf($refVCF);
 	my $sam = Bio::DB::Sam->new(
@@ -874,7 +873,7 @@ sub head {
 sub average{
 	my($data) = @_;
 	if (not @$data) {
-		die("Empty array\n");
+		die("Empty array\nExit status 1");
 		}
 	my $total = 0;
 	foreach (@$data) {
