@@ -531,6 +531,9 @@ sub pipeline {
 				#aps/ape - start/end position of variant site in alignment
 				#rps/rpe - start/end positions of variation site in reference
 				#qps/qpe - start/end positions of variation site in query(read)
+				next if $alignment->get_tag_values("SUPPLEMENTARY") eq '1';
+				next if $alignment->get_tag_values("UNMAPPED") eq '1';
+				next if $alignment->get_tag_values("NOT_PRIMARY") eq '1';
 				my $qps; my $rps; my $aps; my $qpe; my $rpe; my $ape;
 				my $opqs; my $opqe;
 				my ($ref, $match, $query) = $alignment->padded_alignment;
@@ -841,6 +844,7 @@ sub head {
 	my $sam = Bio::DB::Sam->new(
 		-bam   => "$inputBam",
 		-fasta => "$refFile",
+		-expand_flags  => 1,
 		);
 	
 	chechAssemblyConcordance($sam, $refVCF, $refFile);
