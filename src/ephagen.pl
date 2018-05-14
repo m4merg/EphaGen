@@ -738,6 +738,16 @@ sub format_af {
 		}
 	}
 
+sub format_sens {
+	my $sens = shift;
+	if ($sens =~ /^(0?\.?[9]+[^9]{1}).*/) {
+		$sens = $1;
+		} else {
+		$sens = format_af($sens);
+		}
+	return $sens;
+	}
+
 sub write_vcf {
 	my $mutation_hash	= shift;
 	my $version		= shift;
@@ -778,7 +788,7 @@ sub write_vcf {
 			unless (grep(/ERROR/),@info) {push @info, "ERROR"};
 			$line = join("\t", ($seq_id, ($arg->[3])->[1], ($arg->[3])->[0], ($arg->[3])->[2], ($arg->[3])->[3], '.', '.', join(";", @info)));
 			} else {
-			push @info, "CP=".((($arg)->[5])->{'GQ'})->[2];
+			push @info, "CP=".format_sens(((($arg)->[5])->{'GQ'})->[2]);
 			$line = join("\t", ($seq_id, ($arg->[3])->[1], ($arg->[3])->[0], ($arg->[3])->[2], ($arg->[3])->[3], '.', '.', join(";", @info)));
 			}
 		print $fileHandler "$line\n";
@@ -814,7 +824,7 @@ sub downsample_wrapper {
 			}
 		print $fileHandler "$low/$high\t";
 		print $fileHandler format_af(&average(\@avg_cov)),"\t";
-		print $fileHandler format_af(&average(\@sens)),"\t";
+		print $fileHandler format_sens(&average(\@sens)),"\t";
 		print $fileHandler format_af(&stdev(\@sens)),"\n";
 		
 		++$j;
@@ -871,7 +881,7 @@ sub head {
 	print $file_output "#READ FRACTION\tMEAN COVERAGE\tSENSITIVITY\tSENSITIVITY STDEV\n";
 	print $file_output "100/100\t";
 	print $file_output format_af(average_coverage($mut1)),"\t";
-	print $file_output format_af(get_sens($mut1)),"\t";
+	print $file_output format_sens(get_sens($mut1)),"\t";
 	print $file_output "0\n";
 	downsample_wrapper($mut1, $downsample_config, $downsample_av_number, $file_output) unless $skip_downsample;
 	print STDERR "Writing VCF file...\n";
