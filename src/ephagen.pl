@@ -35,7 +35,7 @@ should be in concordance with reference genome file.
 
 =head1 ARGUMENTS
 
-=over 6
+=over 7
 
 =item --bam FILE
 
@@ -75,6 +75,10 @@ is carried only across defined mutation sites.
 =item --out_vcf FILE
 
 Path to output VCF file containing sensitivity analysis per each mutation site
+
+=item --sd [OPTIONAL]
+
+Skip downsample analysis (default FALSE)
 
 =back
 
@@ -149,7 +153,7 @@ sub usage() { pod2usage(-verbose => 1,
 #---    USER CONFIGURATION
 #-------------------------------------------------------------------------------------------
 
-my ($inputBam, $refFile, $refVCF, $outFile, $outVCF, $vcfREF);
+my ($inputBam, $refFile, $refVCF, $outFile, $outVCF, $vcfREF, $skip_downsample);
 my $help;
 
 GetOptions( "bam=s" => \$inputBam,
@@ -158,7 +162,10 @@ GetOptions( "bam=s" => \$inputBam,
 	"vcf_ref=s" => \$vcfREF,
 	"out=s" => \$outFile,
 	"out_vcf=s" => \$outVCF,
+	"skip_downsample|sd" => \$skip_downsample,
 	"help|h" => \$help) || usage();
+
+$skip_downsample //= 0;
 
 usage() if($help);
 usage() unless($argCount);
@@ -863,7 +870,7 @@ sub head {
 	print $file_output format_af(average_coverage($mut1)),"\t";
 	print $file_output format_af(get_sens($mut1)),"\t";
 	print $file_output "0\n";
-	downsample_wrapper($mut1, $downsample_config, $downsample_av_number, $file_output);
+	downsample_wrapper($mut1, $downsample_config, $downsample_av_number, $file_output) unless $skip_downsample;
 	print STDERR "Writing VCF file...\n";
 	write_vcf($mut1, $version, $command, $refFile, $file_vcf);	
 	close $file_output;
