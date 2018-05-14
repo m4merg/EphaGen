@@ -733,7 +733,8 @@ sub format_af {
 			}
 		$i = $i * 10;
 		++$c;
-		die "Too small number '$f'\nExit status 1" if $c > 100;
+		return 0 if $c > 100;
+#		die "Too small number '$f'\nExit status 1" if $c > 100;
 		}
 	}
 
@@ -843,6 +844,8 @@ sub head {
 	my $version	= shift;
 	my $command	= shift;
 
+	
+	
 	open (my $file_output, ">", $outFile) or die "Can't open file $outFile for writing\nExit status 1";
 	open (my $file_vcf, ">", $outVCF) or die "Can't open file $outVCF for writing\nExit status 1";
 
