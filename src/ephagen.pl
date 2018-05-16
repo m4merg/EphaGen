@@ -409,8 +409,21 @@ sub conditioned_m_d {
 	for (my $i = 0; $i <= 2; $i++) {
 		$prior_d += conditioned_d_m($qual_mas, $i) * @{$prior_m}[$i];
 		}
-	$probability = $probability / $prior_d;
-	return $probability;
+	if (	(@{$prior_m}[0] eq 1) and
+		(@{$prior_m}[1] eq 0) and
+		(@{$prior_m}[2] eq 0)
+		) {
+		return 0 if $m_ref eq 0;
+		return $probability if $m_ref eq 1;
+		return (1-$probability) if $m_ref eq 2;
+		}
+	if (($probability eq 0)and($prior_d eq 0)) {
+		return @{$prior_m}[$m_ref];
+		} else {
+		die "Division by zero\nExit status 1" if $prior_d eq 0;
+		$probability = $probability / $prior_d;
+		return $probability;
+		}
 	}
 
 sub score {
@@ -453,6 +466,7 @@ sub load_vcf {
 					}
 				}
 			die "Can't collect COUNT for allele $ALT for variant $mas[2] in input VCF file $file\nExit status 1" if ($count eq 0);
+			die "Can't collect COUNT for allele $ALT for variant $mas[2] in input VCF file $file\nExit status 1" if (int($count) ne $count);
 			$mut{$mas[0]} = [@{$mut{$mas[0]}}, [$position, $mas[3], $alt_slim, [$mas[2], $pos, $REF, $alt[$alt_i], '', $mas[0]], $count, {}]] if defined $mut{$mas[0]};
 			$mut{$mas[0]} = [[$position, $mas[3], $alt_slim, [$mas[2], $pos, $REF, $alt[$alt_i], '', $mas[0]], $count, {}]] unless defined $mut{$mas[0]};
 			}
@@ -611,6 +625,7 @@ sub calling {
 	my $mutation_hash	= shift;
 	my $seq_id		= shift;
 	my $mut_arg		= shift;
+	
 	my $mutation_hash_c = $mutation_hash;
 	my $dp	= (((($mutation_hash_c)->{$seq_id})->[$mut_arg])->[5])->{'DP'};
 	if (defined((((($mutation_hash_c)->{$seq_id})->[$mut_arg])->[5])->{'error'})) {
@@ -860,6 +875,10 @@ sub head {
 	open (my $file_vcf, ">", $outVCF) or die "Can't open file $outVCF for writing\nExit status 1";
 
 	my $mut = load_vcf($refVCF);
+	die "Empty VCF file\nExit status 1\n" if ((scalar (keys %{$mut})) eq 0);
+	my @whole; map {push @whole, @{$mut->{$_}}} keys %{$mut};
+	die "Provide 2 or more target variants in VCF file\nExit status 1\n" if ((scalar @whole) < 2);
+	
 	my $sam = Bio::DB::Sam->new(
 		-bam   => "$inputBam",
 		-fasta => "$refFile",
