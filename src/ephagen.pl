@@ -106,7 +106,7 @@ $| = 1;
 #-------------------------------------------------------------------------------------------
 
 my $version = '1.2';
-my $qscore_min  = 0;
+my $qscore_min  = 15;
 my $qscore_averaging_range      = 2;
 my $var_qual    = 20;
 my $downsample_av_number = 5;
@@ -132,6 +132,7 @@ sub getAbsPath(\$) {
 
 my $baseDir;
 my $refVCFDir;
+my $tempDir;
 BEGIN {
 	my $thisDir=(File::Spec->splitpath($0))[1];
 	$baseDir=File::Spec->catdir($thisDir,File::Spec->updir());
@@ -432,6 +433,11 @@ sub score {
 	return $score;
 	}
 
+sub unscore {
+	my $score       = shift;
+	return int(-10*log($score)/log(10))
+	}
+
 sub load_vcf {
 	my $file	= shift;
 	my %mut;
@@ -495,6 +501,7 @@ sub load_vcf {
 #		'DP' -> [[base qualities for ref reads], [base qualities for alt reads]],
 #		'DQ' -> [0, 1, 2],
 #		'error' -> []
+#		'name' -> ''
 #	}
 
 sub get_allele_count {
@@ -535,8 +542,10 @@ sub pipeline {
 	my $mutation_hash	= shift;
 	my $sam			= shift;
 	my $mutation_hash_r	= dclone $mutation_hash;
+	my $name		= 0;
 	foreach my $seq_id (keys %{$mutation_hash_r}) {
 		for (my $iArg = 0; $iArg < scalar @{($mutation_hash_r)->{$seq_id}}; $iArg++) {
+			++$name;
 			my $arg = (($mutation_hash_r)->{$seq_id})->[$iArg];
 			my $start = ($arg)->[0];
 			my $end = ($arg)->[0];
@@ -583,7 +592,7 @@ sub pipeline {
 				my $qscore = 0;
 				map {$qscore = $qscore + score($_)} @scores[($qscore_start)..($qscore_end)];
 				$qscore = $qscore / ($qscore_end - $qscore_start + 1);
-				next if $qscore > score($qscore_min);
+				next if $qscore >= score($qscore_min);
 				if ((($oref eq (($arg)->[1])) and ($oalt eq (($arg)->[1]))) or ($omat =~ /^\|*$/)) {
 					push (@{$dp[0]},$qscore);
 					} elsif (($oref eq (($arg)->[1])) and ($oalt eq (($arg)->[2]))) {
@@ -599,6 +608,7 @@ sub pipeline {
 			$dp[0] = [shuffle(@{$dp[0]})];
 			$dp[1] = [shuffle(@{$dp[1]})];
 			(((($mutation_hash_r)->{$seq_id})->[$iArg])->[5])->{'DP'} = \@dp;
+			(((($mutation_hash_r)->{$seq_id})->[$iArg])->[5])->{'name'} = "m$name";
 			}
 		}
 	return $mutation_hash_r;
@@ -859,6 +869,45 @@ sub downsample_config_check {
 	map {die "downsample config: $_->[0] > $_->[1]\nExit status 1" if ($_->[0] > $_->[1])} @config;
 	}
 
+sub checkName {
+	my $mutationHash	= shift;
+	my %pikachu;
+	
+	my @whole_m;
+	map {push @whole_m, @{$mutationHash->{$_}}} keys %{$mutationHash};
+	foreach my $arg (@whole_m) {
+		my $name = (($arg->[5])->{"name"});
+		if (defined($pikachu{$name})) {
+			return 1;
+			} else {
+			$pikachu{$name} = 1;
+			}
+		}
+	
+	return 0;
+	}
+
+sub loadR {
+	my $mutationHash	= shift;
+	my $RfileHandle		= shift;
+	
+	my @whole_m;
+	map {push @whole_m, @{$mut1->{$_}}} keys %{$mut1};
+	foreach my $arg (@whole_m) {
+		next unless defined (($arg->[5])->{"DP"});
+		print Dumper $arg; exit;
+		my $name = $arg->[0];
+		my @ref  = @{(($arg->[5])->{"DP"})->[0]};
+		my @alt  = @{(($arg->[5])->{"DP"})->[1]};
+		map {$_ = unscore($_)} @ref;
+		map {$_ = unscore($_)} @alt;
+		@ref = sort {$a <=> $b} @ref;
+		@alt = sort {$a <=> $b} @alt;
+		print $RfileHandle "$name\tref\t",join("\t",@ref),"\n";
+		print $RfileHandle "$name\talt\t",join("\t",@alt),"\n";
+		}
+	}
+
 #head($inputBam, $refFile, $refVCF, $outFile, $outVCF, $version, $cmdline);
 sub head {
 	my $inputBam	= shift;
@@ -892,11 +941,17 @@ sub head {
 	print STDERR "Loading data from input BAM file...\n";
 	
 	my $mut1 = pipeline($mut, $sam);
+	if (checkName($mut1)) {
+		die "Undefined error\nExit status 1\n"
+		};
+	
+	
+	exit;
 	
 	print STDERR "Calculating sensitivity...\n";
 	
 	calling_wrapper($mut1);
-
+	
 	print $file_output "#READ FRACTION\tMEAN COVERAGE\tSENSITIVITY\tSENSITIVITY STDEV\n";
 	print $file_output "100/100\t";
 	print $file_output format_af(average_coverage($mut1)),"\t";
