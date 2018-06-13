@@ -139,7 +139,7 @@ coverSet <- function(cover, conf_pp) {
 	}
 
 sens <- 0
-print(givenData)
+#print(givenData)
 for (i in (1:nrow(givenData))) {
 	sens_i	<- 0
 	p	<- givenData[i,1]

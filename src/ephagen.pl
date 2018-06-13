@@ -133,14 +133,18 @@ sub getAbsPath(\$) {
 my $baseDir;
 my $refVCFDir;
 my $tempDir;
+my $statR;
 BEGIN {
 	my $thisDir=(File::Spec->splitpath($0))[1];
+	$thisDir = './' if ($thisDir eq "");
 	$baseDir=File::Spec->catdir($thisDir,File::Spec->updir());
-	$refVCFDir=File::Spec->catdir(File::Spec->updir(),'reference');
+	$statR=File::Spec->catdir($thisDir,'stat.r');
+	$refVCFDir=File::Spec->catdir($thisDir,File::Spec->updir(),'reference');
+	$tempDir=File::Spec->catdir($thisDir,File::Spec->updir(),'temp');
 	}
 
 if(getAbsPath($baseDir)) {
-	die "Can't resolve path for ephagen install directory: '$baseDir'\nExit status 1";
+	die "Can't resolve path for ephagen install directory: '$baseDir'\nExit status 1\n";
 }
 
 my $scriptName=(File::Spec->splitpath($0))[2];
@@ -154,6 +158,7 @@ sub usage() { pod2usage(-verbose => 1,
 #---    USER CONFIGURATION
 #-------------------------------------------------------------------------------------------
 
+#print STDERR "$baseDir\n$refVCFDir\n";exit;
 my ($inputBam, $refFile, $refVCF, $outFile, $outVCF, $vcfREF, $skip_downsample);
 my $help;
 
@@ -179,12 +184,12 @@ sub checkFile($;$) {
 	my $file = shift;
 	return if(-f $file);
 	my $label = shift;
-	die "Can't find" . (defined($label) ? " $label" : "") . " file: '$file'\nExit status 1";
+	die "Can't find" . (defined($label) ? " $label" : "") . " file: '$file'\nExit status 1\n";
 }
 
 sub checkFileArg($$) {
 	my ($file,$label) = @_;
-	die "Must specify $label file\nExit status 1" unless(defined($file));
+	die "Must specify $label file\nExit status 1\n" unless(defined($file));
 	checkFile($file,$label);
 	}
 
@@ -192,10 +197,14 @@ sub makeAbsoluteFilePaths(\$) {
 	my ($filePathRef) = @_;
 	my ($v,$fileDir,$fileName) = File::Spec->splitpath($$filePathRef);
 	if (getAbsPath($fileDir)) {
-#		die "Can't resolve directory path for '$fileDir' from input file argument: '$$filePathRef'\nExit status 1";
+#		die "Can't resolve directory path for '$fileDir' from input file argument: '$$filePathRef'\nExit status 1\n";
 		}
 	$$filePathRef = File::Spec->catfile($fileDir,$fileName);
 	}
+
+$statR = abs_path($statR);
+makeAbsoluteFilePaths($statR);
+checkFileArg($statR,"stat.R");
 
 $inputBam = abs_path($inputBam);
 makeAbsoluteFilePaths($inputBam);
@@ -204,13 +213,29 @@ checkFileArg($inputBam,"input BAM");
 $refFile = abs_path($refFile);
 makeAbsoluteFilePaths($refFile);
 checkFileArg($refFile,"reference FASTA");
+
+$tempDir = abs_path($tempDir);
+makeAbsoluteFilePaths($tempDir);
+if (opendir(TEMP, $tempDir)) {
+	closedir TEMP;
+	} else {
+	if (mkdir($tempDir)) {
+		} else {
+		die "Can't find or create TEMP directory at $tempDir\nExit status 1\n";
+		}
+	}
+
+my $Rinput  = File::Spec->catfile($tempDir, "Rinput");
+my $Routput = File::Spec->catfile($tempDir, "Routput");
+my $Rlog = File::Spec->catfile($tempDir, "Rlog");
+
 if (defined($vcfREF)) {
 	if (defined $vcf_definition{$vcfREF}) {
 		$refVCF = File::Spec->catfile($refVCFDir, $vcf_definition{$vcfREF});
 		makeAbsoluteFilePaths($refVCF);
 		checkFileArg($refVCF,"reference $vcfREF VCF file");
 		} else {
-		die "Can't resolve value for option --vcf_ref. It should be one of the following: ",join(", ", keys %vcf_definition),"\nExit status 1";
+		die "Can't resolve value for option --vcf_ref. It should be one of the following: ",join(", ", keys %vcf_definition),"\nExit status 1\n";
 		}
 	} else {
 	$refVCF = abs_path($refVCF);
@@ -220,11 +245,11 @@ if (defined($vcfREF)) {
 
 $outFile = abs_path($outFile);
 makeAbsoluteFilePaths($outFile);
-if (open(TEST, ">", $outFile)) {close TEST} else {die "Can't use file $outFile as output\nExit status 1"}
+if (open(TEST, ">", $outFile)) {close TEST} else {die "Can't use file $outFile as output\nExit status 1\n"}
 
 $outVCF = abs_path($outVCF);
 makeAbsoluteFilePaths($outVCF);
-if (open(TEST, ">", $outVCF)) {close TEST} else {die "Can't use file $outVCF as output\nExit status 1"}
+if (open(TEST, ">", $outVCF)) {close TEST} else {die "Can't use file $outVCF as output\nExit status 1\n"}
 
 #-------------------------------------------------------------------------------------------
 #---    CHECK BAM AND REFERENCE FASTA INDEX FILE
@@ -237,7 +262,7 @@ sub checkBamIndex($) {
 		$ifile = $file;
 		$ifile =~ s/\.bam$/\.bai/;
 		if(! -f $ifile) {
-			die "Can't find index for BAM file '$file'\nExit status 1";
+			die "Can't find index for BAM file '$file'\nExit status 1\n";
 			}
 		}
 	}
@@ -248,16 +273,16 @@ sub checkFaIndex($) {
 	my ($file) = @_;
 	my $ifile = $file . ".fai";
 	if(! -f $ifile) {
-		die "Can't find index for fasta file '$file'\nExit status 1";
+		die "Can't find index for fasta file '$file'\nExit status 1\n";
 		}
 	# check that fai file isn't improperly formatted (a la the GATK bundle NCBI 37 fai files)
-	open(my $FH,"< $ifile") || die "Can't open fai file '$ifile'\nExit status 1";
+	open(my $FH,"< $ifile") || die "Can't open fai file '$ifile'\nExit status 1\n";
 	my $lineno = 1;
 	while(<$FH>) {
 		chomp;
 		my @F=split();
 		if(scalar(@F) != 5) {
-		die "Unexpected format for line number '$lineno' of fasta index file: '$ifile'\n\tRe-running fasta indexing may fix the issue. To do so, run: \"samtools faidx $file\"\nExit status 1";
+		die "Unexpected format for line number '$lineno' of fasta index file: '$ifile'\n\tRe-running fasta indexing may fix the issue. To do so, run: \"samtools faidx $file\"\nExit status 1\n";
 		}
 		$lineno++;
 		}
@@ -274,7 +299,7 @@ sub chechAssemblyConcordance {
 	my @chromosomes = $sam->features (-type=>'chromosome');
 	my $faidx_file = $refFile . ".fai";
 	
-	open (my $VCF, "<", $vcfFile) || die "Can't open $vcfFile\nExit status 1";
+	open (my $VCF, "<", $vcfFile) || die "Can't open $vcfFile\nExit status 1\n";
 	
 	my @target_chr;
 	while (<$VCF>) {
@@ -286,18 +311,18 @@ sub chechAssemblyConcordance {
 			my $ref = $_;
 #			print "$fields[0]\t$fields[1]\n";
 			if ($ref->{'seqid'} eq $fields[0]) {
-				die "Mutation '$fields[2]' start position is out of contig size at input VCF file $vcfFile\nExit status 1" if $fields[1] > $ref->{'end'};
-				die "Mutation '$fields[2]' start position is out of contig size at input VCF file $vcfFile\nExit status 1" if $fields[1] < $ref->{'start'};
+				die "Mutation '$fields[2]' start position is out of contig size at input VCF file $vcfFile\nExit status 1\n" if $fields[1] > $ref->{'end'};
+				die "Mutation '$fields[2]' start position is out of contig size at input VCF file $vcfFile\nExit status 1\n" if $fields[1] < $ref->{'start'};
 				$flag = 1;
 				}
 			} @chromosomes;
-		die "Contig '$fields[0]' from input $vcfFile can't be found in input BAM file header\nExit status 1" if $flag eq 0;
+		die "Contig '$fields[0]' from input $vcfFile can't be found in input BAM file header\nExit status 1\n" if $flag eq 0;
 		push (@target_chr, $fields[0]) unless grep(/^$fields[0]$/, @target_chr);
 		}
 	
 	close($VCF);
 	
-	open (my $FAIDX, "<", $faidx_file) || die "Can't open $faidx_file\nExit status 1";
+	open (my $FAIDX, "<", $faidx_file) || die "Can't open $faidx_file\nExit status 1\n";
 	
 	while (<$FAIDX>) {
 		chomp;
@@ -309,10 +334,10 @@ sub chechAssemblyConcordance {
 			if ($fields[0] eq $ref->{'seqid'}) {
 				if ($fields[1] eq $ref->{'end'}) {
 					$flag = 1;
-					} else {die "Contig '$fields[0]' sizes from input BAM header and input reference file does not match\nExit status 1"}
+					} else {die "Contig '$fields[0]' sizes from input BAM header and input reference file does not match\nExit status 1\n"}
 				}
 			} @chromosomes;
-		die "Contig '$fields[0]' from input $refFile can't be found in input BAM file header\nExit status 1" if $flag eq 0;
+		die "Contig '$fields[0]' from input $refFile can't be found in input BAM file header\nExit status 1\n" if $flag eq 0;
 		}
 	
 	close($FAIDX);
@@ -421,7 +446,7 @@ sub conditioned_m_d {
 	if (($probability eq 0)and($prior_d eq 0)) {
 		return @{$prior_m}[$m_ref];
 		} else {
-		die "Division by zero\nExit status 1" if $prior_d eq 0;
+		die "Division by zero\nExit status 1\n" if $prior_d eq 0;
 		$probability = $probability / $prior_d;
 		return $probability;
 		}
@@ -449,10 +474,10 @@ sub load_vcf {
 		next if m!^#!;
 		my @mas = split/\t/;
 		my $REF = $mas[3];
-		die "Malformed reference allele at input VCF file $file for variant '$mas[2]'\nExit status 1" if length($REF) < 1;
+		die "Malformed reference allele at input VCF file $file for variant '$mas[2]'\nExit status 1\n" if length($REF) < 1;
 		my $pos = $mas[1];
 		my $ALT = $mas[4];
-		die "Malformed reference allele at input VCF file $file for variant '$mas[2]'\nExit status 1" if length($ALT) < 1;
+		die "Malformed reference allele at input VCF file $file for variant '$mas[2]'\nExit status 1\n" if length($ALT) < 1;
 		my @alt = split/,/, $ALT;
 		my @info = split/;/, $mas[7];
 		for (my $alt_i = 0; $alt_i < scalar @alt; $alt_i++) {
@@ -465,14 +490,14 @@ sub load_vcf {
 			foreach my $arg (@info) {
 				if ($arg =~ /COUNT=(\S+)/) {
 					my @count_mas = split/,/, $1;
-					die "Can't collect COUNT for each alternative allele for mutation '$mas[2]' in input VCF file $file\nExit status 1" if ((scalar @count_mas) ne (scalar @alt));
+					die "Can't collect COUNT for each alternative allele for mutation '$mas[2]' in input VCF file $file\nExit status 1\n" if ((scalar @count_mas) ne (scalar @alt));
 					$count = $count_mas[$alt_i];
-					die "COUNT field should contain only INTEGER non-zero values\nExit status 1" if (int($count) ne $count);
-					die "COUNT field should contain only INTEGER non-zero values\nExit status 1" if ($count eq 0);
+					die "COUNT field should contain only INTEGER non-zero values\nExit status 1\n" if (int($count) ne $count);
+					die "COUNT field should contain only INTEGER non-zero values\nExit status 1\n" if ($count eq 0);
 					}
 				}
-			die "Can't collect COUNT for allele $ALT for variant $mas[2] in input VCF file $file\nExit status 1" if ($count eq 0);
-			die "Can't collect COUNT for allele $ALT for variant $mas[2] in input VCF file $file\nExit status 1" if (int($count) ne $count);
+			die "Can't collect COUNT for allele $ALT for variant $mas[2] in input VCF file $file\nExit status 1\n" if ($count eq 0);
+			die "Can't collect COUNT for allele $ALT for variant $mas[2] in input VCF file $file\nExit status 1\n" if (int($count) ne $count);
 			$mut{$mas[0]} = [@{$mut{$mas[0]}}, [$position, $mas[3], $alt_slim, [$mas[2], $pos, $REF, $alt[$alt_i], '', $mas[0]], $count, {}]] if defined $mut{$mas[0]};
 			$mut{$mas[0]} = [[$position, $mas[3], $alt_slim, [$mas[2], $pos, $REF, $alt[$alt_i], '', $mas[0]], $count, {}]] unless defined $mut{$mas[0]};
 			}
@@ -502,6 +527,8 @@ sub load_vcf {
 #		'DQ' -> [0, 1, 2],
 #		'error' -> []
 #		'name' -> ''
+#		'prior' -> float
+#		'USSR' -> float
 #	}
 
 sub get_allele_count {
@@ -687,7 +714,7 @@ sub downsample {
 	my $lower		= shift;
 	my $higher		= shift;
 	my $mutation_hash_c	= dclone $mutation_hash;
-	die "Exit status 1" unless $higher > $lower;
+	die "Undefined Error 'downsample1'\nExit status 1\n" unless $higher > $lower;
 	my @ref_mas;
 	for (my $i = 1; $i <= $lower; $i++) {
 		push (@ref_mas, 1);
@@ -759,7 +786,7 @@ sub format_af {
 		$i = $i * 10;
 		++$c;
 		return 0 if $c > 100;
-#		die "Too small number '$f'\nExit status 1" if $c > 100;
+#		die "Too small number '$f'\nExit status 1\n" if $c > 100;
 		}
 	}
 
@@ -788,12 +815,13 @@ sub write_vcf {
 	"##INFO=<ID=ERROR,Number=0,Type=Flag,Description=\"Indicates that error occured during pileup or calling process.\">\n",
 	"##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Read depth.\">\n",
 	"##INFO=<ID=AF,Number=R,Type=Float,Description=\"Allele frequency.\">\n",
-	"##INFO=<ID=CP,Number=R,Type=Float,Description=\"Probability of observing 2 reference alleles.\">\n",
+	"##INFO=<ID=SSS,Number=R,Type=Float,Description=\"Single Site Sensitivity\">\n",
 	"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n";
 	my $count = get_allele_count($mutation_hash);
 	my @whole;
 	map {push @whole, @{$mutation_hash->{$_}}} keys %{$mutation_hash};
-	foreach my $arg (sort {((($a)->[5])->{'GQ'})->[2] <=> ((($b)->[5])->{'GQ'})->[2]} @whole) {
+#	foreach my $arg (sort {((($a)->[5])->{'GQ'})->[2] <=> ((($b)->[5])->{'GQ'})->[2]} @whole) {
+	foreach my $arg (sort {(((($b)->[5])->{'prior'}) - ((($b)->[5])->{'USSR'})) <=> (((($a)->[5])->{'prior'}) - ((($a)->[5])->{'USSR'}))} @whole) {
 		my $seq_id = ($arg->[3])->[5];
 		my $line;
 		my @info;
@@ -813,7 +841,10 @@ sub write_vcf {
 			unless (grep(/ERROR/),@info) {push @info, "ERROR"};
 			$line = join("\t", ($seq_id, ($arg->[3])->[1], ($arg->[3])->[0], ($arg->[3])->[2], ($arg->[3])->[3], '.', '.', join(";", @info)));
 			} else {
-			push @info, "CP=".format_sens(((($arg)->[5])->{'GQ'})->[2]);
+#			push @info, "SSS=".format_sens(((($arg)->[5])->{'GQ'})->[2]);
+			my $SSS = ((($arg)->[5])->{'USSR'})/((($arg)->[5])->{'prior'});
+			$SSS = 1 if $SSS > 1;
+			push @info, "SSS=".format_sens($SSS);
 			$line = join("\t", ($seq_id, ($arg->[3])->[1], ($arg->[3])->[0], ($arg->[3])->[2], ($arg->[3])->[3], '.', '.', join(";", @info)));
 			}
 		print $fileHandler "$line\n";
@@ -844,7 +875,10 @@ sub downsample_wrapper {
 		
 		for (my $i = 1; $i <= $downsample_count; $i++) {
 			my $mut_tmp = downsample($mutation_hash, $low, $high);
-			push (@sens, get_sens($mut_tmp));
+#			push (@sens, get_sens($mut_tmp));
+			my $sens_tmp;
+			($sens_tmp, $mut_tmp) = getSensR($mut_tmp);
+			push (@sens, $sens_tmp);
 			push (@avg_cov, average_coverage($mut_tmp));
 			}
 		print $fileHandler "$low/$high\t";
@@ -866,7 +900,7 @@ sub downsample_config_check {
 	my $string		= shift;
 	$string =~ s/\/|;/ /g;
 	my @config = pairs(split/\s/, $string);
-	map {die "downsample config: $_->[0] > $_->[1]\nExit status 1" if ($_->[0] > $_->[1])} @config;
+	map {die "downsample config: $_->[0] > $_->[1]\nExit status 1\n" if ($_->[0] > $_->[1])} @config;
 	}
 
 sub checkName {
@@ -876,6 +910,9 @@ sub checkName {
 	my @whole_m;
 	map {push @whole_m, @{$mutationHash->{$_}}} keys %{$mutationHash};
 	foreach my $arg (@whole_m) {
+		unless (defined((($arg->[5])->{"name"}))) {
+			return 1;
+			}
 		my $name = (($arg->[5])->{"name"});
 		if (defined($pikachu{$name})) {
 			return 1;
@@ -887,25 +924,127 @@ sub checkName {
 	return 0;
 	}
 
+sub loadPrior {
+	my $mutation_hash       = shift;
+	my $count = 0;
+	my $af = 0;
+	
+	my @whole_m;
+	map {push @whole_m, @{$mutation_hash->{$_}}} keys %{$mutation_hash};
+	
+	foreach my $arg (@whole_m) {
+		$count += $arg->[4];
+		}
+	
+	die "Total allele count should be positive\nExit status 1\n" unless $count > 0;
+	foreach my $seq_id (keys %{$mutation_hash}) {
+		for (my $i = 0 ; $i < scalar @{($mutation_hash)->{$seq_id}}; $i++) {
+			(((($mutation_hash)->{$seq_id})->[$i])->[5])->{"prior"} = ((($mutation_hash)->{$seq_id})->[$i])->[4]/$count;
+                        }
+                }
+	}
+
+sub getCountSum {
+	my $mutation_hash	= shift;
+	my $count = 0;
+	
+	my @whole_m;
+	map {push @whole_m, @{$mutation_hash->{$_}}} keys %{$mutation_hash};
+	
+	foreach my $arg (@whole_m) {
+		$count += $arg->[4];
+		}
+	
+	return $count;
+	}
+
 sub loadR {
 	my $mutationHash	= shift;
 	my $RfileHandle		= shift;
 	
 	my @whole_m;
-	map {push @whole_m, @{$mut1->{$_}}} keys %{$mut1};
+	my $count = getCountSum($mutationHash);
+	my $countExp = 0;
+	
+	map {push @whole_m, @{$mutationHash->{$_}}} keys %{$mutationHash};
+	my $priorSum += 0;
 	foreach my $arg (@whole_m) {
-		next unless defined (($arg->[5])->{"DP"});
-		print Dumper $arg; exit;
-		my $name = $arg->[0];
-		my @ref  = @{(($arg->[5])->{"DP"})->[0]};
-		my @alt  = @{(($arg->[5])->{"DP"})->[1]};
-		map {$_ = unscore($_)} @ref;
-		map {$_ = unscore($_)} @alt;
-		@ref = sort {$a <=> $b} @ref;
-		@alt = sort {$a <=> $b} @alt;
-		print $RfileHandle "$name\tref\t",join("\t",@ref),"\n";
-		print $RfileHandle "$name\talt\t",join("\t",@alt),"\n";
+#		next unless defined (($arg->[5])->{"DP"});
+#		print Dumper $arg; exit;
+		my $prior = ($arg->[4])/$count;;
+		my $name = (($arg->[5])->{"name"});
+		my @ref;
+		my @alt;
+		if (defined((($arg->[5])->{"DP"}))) {
+			@ref  = @{(($arg->[5])->{"DP"})->[0]};
+			@alt  = @{(($arg->[5])->{"DP"})->[1]};
+			map {$_ = unscore($_)} @ref;
+			map {$_ = unscore($_)} @alt;
+			@ref = sort {$a <=> $b} @ref;
+			@alt = sort {$a <=> $b} @alt;
+			} else {
+			@ref = ();
+			@alt = ();
+			}
+		if ((defined($name))and(defined($prior))) {
+			print $RfileHandle "$name\tprior\t$prior\n";
+			print $RfileHandle "$name\tref\t",join("\t",@ref),"\n";
+			print $RfileHandle "$name\talt\t",join("\t",@alt),"\n";
+			$countExp += $arg->[4];
+			} else {
+			die "Undefined Error 'loadR1'\nExit status 1\n";
+			}
 		}
+	die "Undefined Error 'loadR2'\nExit status 1\n" if ($count ne $countExp);
+	}
+
+sub readR {
+	my $mutation_hash	= shift;
+	my $RoutputHandle	= shift;
+	
+	my $sens;
+	my %SSS;
+	
+	my $priorSum = 0;
+	while (<$RoutputHandle>) {
+		my $line = $_;
+		chomp $line;
+#		print STDERR "$line\n";
+		if ($line =~ /^(\S+)\s+(\S+)\s+(\S+)\s+$/) {
+#			print STDERR "$1\t$2\t$3\n";
+			$SSS{$1} = $2;
+			$priorSum += $3;
+			} elsif ($line =~ /^(\S+)\s+$/) {
+			$sens = $1;
+			}
+		}
+	die "Undefined Error 'readR1'\nExit status 1\n" unless $priorSum ne 1;
+	
+	foreach my $seq_id (keys %{$mutation_hash}) {
+		for (my $i = 0 ; $i < scalar @{($mutation_hash)->{$seq_id}}; $i++) {
+			my $name = (((($mutation_hash)->{$seq_id})->[$i])->[5])->{"name"};
+			die "Undefined Error 'readR2'\nExit status 1\n" unless (defined($SSS{$name}));
+			(((($mutation_hash)->{$seq_id})->[$i])->[5])->{"USSR"} = $SSS{$name};
+			}
+		}
+	return $sens;
+	}
+
+sub getSensR {
+	my $mutationHash	= shift;
+	my $mutationHashR	= dclone $mutationHash;
+	
+	open (my $RinputHandle, ">", $Rinput) or die "Can't open file $Rinput for writing\nExit status 1\n";
+	loadR($mutationHashR, $RinputHandle);
+	close $RinputHandle;
+	
+	`R --slave -f $statR --args $Rinput > $Routput 2> $Rlog`;
+	
+	open (my $RoutputHandle, "<", $Routput) or die "Can't open file $Routput for reading\nExit status 1\n";
+	my $sensR = readR($mutationHashR, $RoutputHandle);
+	close $RoutputHandle;
+	
+	return ($sensR, $mutationHashR);
 	}
 
 #head($inputBam, $refFile, $refVCF, $outFile, $outVCF, $version, $cmdline);
@@ -917,11 +1056,9 @@ sub head {
 	my $outVCF	= shift;
 	my $version	= shift;
 	my $command	= shift;
-
 	
-	
-	open (my $file_output, ">", $outFile) or die "Can't open file $outFile for writing\nExit status 1";
-	open (my $file_vcf, ">", $outVCF) or die "Can't open file $outVCF for writing\nExit status 1";
+	open (my $file_output, ">", $outFile) or die "Can't open file $outFile for writing\nExit status 1\n";
+	open (my $file_vcf, ">", $outVCF) or die "Can't open file $outVCF for writing\nExit status 1\n";
 
 	my $mut = load_vcf($refVCF);
 	die "Empty VCF file\nExit status 1\n" if ((scalar (keys %{$mut})) eq 0);
@@ -941,22 +1078,26 @@ sub head {
 	print STDERR "Loading data from input BAM file...\n";
 	
 	my $mut1 = pipeline($mut, $sam);
+	loadPrior($mut1);
+	
 	if (checkName($mut1)) {
-		die "Undefined error\nExit status 1\n"
+		die "Undefined Error 'head1'\nExit status 1\n"
 		};
+
+	print STDERR "Calculating sensitivity\n";
+	my $sensR;
+	($sensR, $mut1) = getSensR($mut1);
 	
-	
-	exit;
-	
-	print STDERR "Calculating sensitivity...\n";
-	
+#	print STDERR "Calculating sensitivity...\n";
 	calling_wrapper($mut1);
 	
 	print $file_output "#READ FRACTION\tMEAN COVERAGE\tSENSITIVITY\tSENSITIVITY STDEV\n";
 	print $file_output "100/100\t";
 	print $file_output format_af(average_coverage($mut1)),"\t";
-	print $file_output format_sens(get_sens($mut1)),"\t";
+#	print $file_output format_sens(get_sens($mut1)),"\t";
+	print $file_output format_sens($sensR),"\t";
 	print $file_output "0\n";
+	
 	downsample_wrapper($mut1, $downsample_config, $downsample_av_number, $file_output) unless $skip_downsample;
 	print STDERR "Writing VCF file...\n";
 	write_vcf($mut1, $version, $command, $refFile, $file_vcf);	
@@ -967,7 +1108,7 @@ sub head {
 sub average{
 	my($data) = @_;
 	if (not @$data) {
-		die("Empty array\nExit status 1");
+		die("Empty array\nExit status 1\n");
 		}
 	my $total = 0;
 	foreach (@$data) {
