@@ -68,8 +68,8 @@ Path to output file containing result dataset sensitivity analysis results.
 This is tab-separated file where first raw contains information on mean coverage
 and sensitivity for the whole dataset. Further lines contain results of 
 downsample analysis based on random sampling of reads from the whole datasets.
-For each read fraction random sampling is performed several times. Mean sensitivity and
-standard deviation are written for each read fraction.  Mean coverage calculation 
+For each read fraction random sampling is performed several times. Mean sensitivity 
+is written for each read fraction. Mean coverage calculation 
 is carried only across defined mutation sites.
 
 =item --out_vcf FILE
@@ -873,18 +873,16 @@ sub downsample_wrapper {
 		my @sens;
 		my @avg_cov;
 		
-		for (my $i = 1; $i <= $downsample_count; $i++) {
-			my $mut_tmp = downsample($mutation_hash, $low, $high);
-#			push (@sens, get_sens($mut_tmp));
-			my $sens_tmp;
-			($sens_tmp, $mut_tmp) = getSensR($mut_tmp);
-			push (@sens, $sens_tmp);
-			push (@avg_cov, average_coverage($mut_tmp));
-			}
+		my $mut_tmp = downsample($mutation_hash, $low, $high);
+#		push (@sens, get_sens($mut_tmp));
+		my $sens_tmp;
+		($sens_tmp, $mut_tmp) = getSensR($mut_tmp);
+		push (@sens, $sens_tmp);
+		push (@avg_cov, average_coverage($mut_tmp));
+		
 		print $fileHandler "$low/$high\t";
 		print $fileHandler format_af(&average(\@avg_cov)),"\t";
-		print $fileHandler format_sens(&average(\@sens)),"\t";
-		print $fileHandler format_af(&stdev(\@sens)),"\n";
+		print $fileHandler format_sens(&average(\@sens)),"\n";
 		
 		++$j;
 		print STDERR "\r";
@@ -1091,12 +1089,11 @@ sub head {
 #	print STDERR "Calculating sensitivity...\n";
 	calling_wrapper($mut1);
 	
-	print $file_output "#READ FRACTION\tMEAN COVERAGE\tSENSITIVITY\tSENSITIVITY STDEV\n";
+	print $file_output "#READ FRACTION\tMEAN COVERAGE\tSENSITIVITY\n";
 	print $file_output "100/100\t";
 	print $file_output format_af(average_coverage($mut1)),"\t";
 #	print $file_output format_sens(get_sens($mut1)),"\t";
-	print $file_output format_sens($sensR),"\t";
-	print $file_output "0\n";
+	print $file_output format_sens($sensR),"\n";
 	
 	downsample_wrapper($mut1, $downsample_config, $downsample_av_number, $file_output) unless $skip_downsample;
 	print STDERR "Writing VCF file...\n";

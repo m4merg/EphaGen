@@ -44,7 +44,7 @@ To run ephagen execute src/ephagen.pl script. You may find example command line 
 HOW TO READ OUTPUT FILES
 
 EphaGen will produce two output files: general sensitivity analysis results in tsv format and VCF with probabilities for each mutation from input VCF file.
-The first line from general sensitivity analysis results contains mean coverage across all mutation sites from input VCF and . Each further line contain results on downsample analysis: based on selected read fraction random sampling of reads from input BAM file is performed and sensitivity analysis invoked - mean sensitivity and standard deviation are written for each read fraction.
+The first line from general sensitivity analysis results contains mean coverage across all mutation sites from input VCF and . Each further line contain results on downsample analysis: based on selected read fraction random sampling of reads from input BAM file is performed and sensitivity analysis invoked - mean sensitivity is written for each read fraction.
 Output VCF file copies the input VCF files, but INFO section is rewritten.
 
 
