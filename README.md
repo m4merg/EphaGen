@@ -25,6 +25,7 @@ INSTALLATION
 	   sudo cpan install Try::Tiny
 	   sudo cpan install Switch
    And R libraries:
+   
 	   sudo su - -c "R -e \"install.packages('hash', repos='http://cran.rstudio.com/')\""
 3. Run demo (demo/run.sh) to check the installation	
    Enter demo directory, invoke run.sh and compare output with example output from the corresponding directory
