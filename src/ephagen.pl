@@ -109,7 +109,7 @@ $| = 1;
 #---    CONSTANTS
 #-------------------------------------------------------------------------------------------
 
-my $version = '1.2';
+my $version = '1.3';
 my $qscore_min  = 15;
 my $qscore_averaging_range      = 2;
 my $var_qual    = 20;
