@@ -1,4 +1,5 @@
 library(parallel)
+suppressMessages(library(hash))
 
 options(arn=-1)
 
@@ -6,42 +7,6 @@ args <- commandArgs()
 
 inputFile <-args[6];
 no_cores  <-args[7];
-
-input <- scan(inputFile, what="", sep="\n", quiet=TRUE)
-givenData <- matrix(,0,3)	# allele frequency, km - coverage, error rate
-givenName <- c()
-dataList  <- list()
-n <- 1
-for (i in (1:(length(input)/3))) {
-	name <- unlist(strsplit(input[i*3-2], "\t"))[1]
-	p <- as.numeric(unlist(strsplit(input[i*3-2], "\t"))[3])
-	x <- c()
-	x1 <- strsplit(input[i*3-1], "\t")
-	if (length(unlist(x1)) > 2) {
-		x1 <- as.numeric(unlist(x1)[3:length(unlist(x1))])
-		x1 <- x1[!x1 %in% boxplot.stats(x1, coef=0.5)$out]
-		} else {
-		x1 <- NULL
-		}
-	x2 <- strsplit(input[i*3], "\t")
-	if (length(unlist(x2)) > 2) {
-		x2 <- as.numeric(unlist(x2)[3:length(unlist(x2))])
-		x2 <- x2[!x2 %in% boxplot.stats(x2, coef=0.5)$out]
-		} else {
-		x2 <- NULL
-		}
-	element <- c()
-	if (length(c(x1,x2)) == 0) {
-		element <- c(p, 0, NA)
-		givenName <- c(givenName, name)
-		} else {
-		element <- c(p, length(c(x1,x2)), mean(c(x1,x2)))
-		givenName <- c(givenName, name)
-		}
-	givenData <- rbind(givenData, c(element))
-	dataList[[n]] <- list(element[1], element[2], element[3], name)
-	n <- n + 1
-	}
 
 score <- function(score) {
 	return(-10*log(score)/log(10))
@@ -181,6 +146,54 @@ singleRun <- function(element) {
 	return(list(name, sens_i/2, p))
 	}
 
+#--------------------------------------------
+#--- HEAD
+#--------------------------------------------
+
+input <- scan(inputFile, what="", sep="\n", quiet=TRUE)
+givenData <- matrix(,0,3)       # allele frequency, km - coverage, error rate
+givenName <- c()
+dataList  <- list()
+n <- 1
+cover <- hash()
+for (i in (1:(length(input)/3))) {
+	name <- as.character(unlist(strsplit(input[i*3-2], "\t"))[1])
+	p <- as.numeric(unlist(strsplit(input[i*3-2], "\t"))[3])
+	x <- c()
+	x1 <- strsplit(input[i*3-1], "\t")
+	if (length(unlist(x1)) > 2) {
+		x1 <- as.numeric(unlist(x1)[3:length(unlist(x1))])
+		} else {
+		x1 <- NULL
+		}
+	x2 <- strsplit(input[i*3], "\t")
+	if (length(unlist(x2)) > 2) {
+		x2 <- as.numeric(unlist(x2)[3:length(unlist(x2))])
+		if (length(c(x1,x2)) > 0) {
+			if (indicatorG(0, length(x1), length(x2), unscore(mean(c(x1,x2))), p) > 0) {
+				x2 <- c()
+				}
+			if (indicatorG(1, length(x1), length(x2), unscore(mean(c(x1,x2))), p) > 0) {
+				x2 <- c()
+				}
+			}
+		} else {
+		x2 <- NULL
+		}
+	element <- c()
+	if (length(c(x1,x2)) == 0) {
+		element <- c(p, 0, NA)
+		givenName <- c(givenName, name)
+		} else {
+		element <- c(p, length(c(x1,x2)), mean(c(x1,x2)))
+		givenName <- c(givenName, name)
+		}
+	givenData <- rbind(givenData, c(element))
+	dataList[[n]] <- list(element[1], element[2], element[3], name)
+	cover[[name]] <- element[2]
+	n <- n + 1
+	}
+
 c1 <- makeCluster(no_cores, type="FORK")
 result <- parLapply(c1, dataList, singleRun)
 stopCluster(c1)
@@ -189,7 +202,8 @@ sens <- 0
 for(i in (1:length(result))) {
 	cat(as.character(result[[i]][1])," ",
 		as.numeric(result[[i]][2])," ",
-		as.numeric(result[[i]][3]),"\n"
+		as.numeric(result[[i]][3])," ",
+		cover[[as.character(result[[i]][1])]],"\n"
 		)
 	sens <- sens + as.numeric(result[[i]][2])
 	}

@@ -162,7 +162,6 @@ sub usage() { pod2usage(-verbose => 1,
 #---    USER CONFIGURATION
 #-------------------------------------------------------------------------------------------
 
-#print STDERR "$baseDir\n$refVCFDir\n";exit;
 my ($inputBam, $refFile, $refVCF, $outFile, $outVCF, $vcfREF, $skip_downsample, $no_cores);
 my $help;
 
@@ -540,8 +539,9 @@ sub load_vcf {
 #		'DQ' -> [0, 1, 2],
 #		'error' -> []
 #		'name' -> ''
-#		'prior' -> float
-#		'USSR' -> float
+#		'prior' -> numeric
+#		'USSR' -> numeric, single site sensitivity by R
+#		'coverR' -> numeric, as calcuated by R script
 #	}
 
 sub get_allele_count {
@@ -633,18 +633,31 @@ sub pipeline {
 				map {$qscore = $qscore + score($_)} @scores[($qscore_start)..($qscore_end)];
 				$qscore = $qscore / ($qscore_end - $qscore_start + 1);
 				next if $qscore >= score($qscore_min);
-				print STDERR "",($arg->[3])->[0],"\t$omat\n";
-				if ((($oref eq (($arg)->[1])) and ($oalt eq (($arg)->[1]))) or ($omat =~ /^\|*$/)) {
-					push (@{$dp[0]},$qscore);
-					} elsif (($oref eq (($arg)->[1])) and ($oalt eq (($arg)->[2]))) {
+				if (($oref eq (($arg)->[1])) and ($oalt eq (($arg)->[2]))) {
 					if (defined((($arg)->[5])->{'error'})) {
-						if (grep(/mut/,@{(($arg)->[5])->{'error'}})) {} else {
-							push (@{$dp[1]},$qscore);
+						if (grep(/mut/,@{(($arg)->[5])->{'error'}})) {
+							} else {
+                                                        push (@{$dp[1]},$qscore);
 							}
 						} else {
 						push (@{$dp[1]},$qscore);
 						}
-					}
+					} elsif (((length($oref) eq length(($arg)->[1]))and
+						(length($oalt) eq length(($arg)->[1])))or
+						($omat =~ /^\|*$/)) {
+						push (@{$dp[0]},$qscore);
+						}
+#				if ((($oref eq (($arg)->[1])) and ($oalt eq (($arg)->[1]))) or ($omat =~ /^\|*$/)) {
+#					push (@{$dp[0]},$qscore);
+#					} elsif (($oref eq (($arg)->[1])) and ($oalt eq (($arg)->[2]))) {
+#					if (defined((($arg)->[5])->{'error'})) {
+#						if (grep(/mut/,@{(($arg)->[5])->{'error'}})) {} else {
+#							push (@{$dp[1]},$qscore);
+#							}
+#						} else {
+#						push (@{$dp[1]},$qscore);
+#						}
+#					}
 				}
 			$dp[0] = [shuffle(@{$dp[0]})];
 			$dp[1] = [shuffle(@{$dp[1]})];
@@ -840,12 +853,14 @@ sub write_vcf {
 		my $line;
 		my @info;
 		my $warn_line = "Error at mutation site $seq_id\t".($arg->[3])->[1]."\t".($arg->[3])->[0]."\t".($arg->[3])->[2]."\t".($arg->[3])->[3];
-		if (defined(((($arg)->[5])->{'DP'}))) {
-			push @info, "DP=".((scalar @{((($arg)->[5])->{'DP'})->[0]}) + (scalar @{((($arg)->[5])->{'DP'})->[1]}));
-			} else {
-			warn "$warn_line\n";
-			push @info, "ERROR";
-			}
+		if (defined(((($arg)->[5])->{'coverR'}))) {
+			push @info, "DP=".(((($arg)->[5])->{'coverR'}));
+			} elsif (defined(((($arg)->[5])->{'DP'}))) {
+				push @info, "DP=".((scalar @{((($arg)->[5])->{'DP'})->[0]}) + (scalar @{((($arg)->[5])->{'DP'})->[1]}));
+				} else {
+				warn "$warn_line\n";
+				push @info, "ERROR";
+				}
 		push @info, "AF=".format_af(((($arg)->[4])/$count));
 		if ( @{(($arg)->[5])->{'error'}} ) {
 			if ( grep(/hwe/,@{(($arg)->[5])->{'error'}}) )  {
@@ -1016,16 +1031,18 @@ sub readR {
 	
 	my $sens;
 	my %SSS;
+	my %coverR;
 	
 	my $priorSum = 0;
 	while (<$RoutputHandle>) {
 		my $line = $_;
 		chomp $line;
 #		print STDERR "$line\n";
-		if ($line =~ /^(\S+)\s+(\S+)\s+(\S+)\s+$/) {
+		if ($line =~ /^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+$/) {
 #			print STDERR "$1\t$2\t$3\n";
 			$SSS{$1} = $2;
 			$priorSum += $3;
+			$coverR{$1} = $4;
 			} elsif ($line =~ /^(\S+)\s+$/) {
 			$sens = $1;
 			}
@@ -1037,6 +1054,7 @@ sub readR {
 			my $name = (((($mutation_hash)->{$seq_id})->[$i])->[5])->{"name"};
 			die "Undefined Error 'readR2'\nExit status 1\n" unless (defined($SSS{$name}));
 			(((($mutation_hash)->{$seq_id})->[$i])->[5])->{"USSR"} = $SSS{$name};
+			(((($mutation_hash)->{$seq_id})->[$i])->[5])->{"coverR"} = $coverR{$name};
 			}
 		}
 	return $sens;
