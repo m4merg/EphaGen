@@ -5,7 +5,7 @@ REQUIREMENTS
 
 0. Perl installed and added to the PATH
 1. SAMtools (http://samtools.sourceforge.net/, preferred version - 1.5) installed and added to the PATH
-2. The following Perl libraries should be installed: Bio::DB::Sam (version 1.43), Bio::Cigar, Try::Tiny, Switch
+2. The following Perl libraries should be installed: Bio::DB::Sam (version 1.43), Bio::Cigar, Try::Tiny, Switch. The following R libraries should be installed: hash
 3. The fasta sequence (one file, unzipped; e.g. "hg19.fa") of the targeted genome should be downloaded from http://hgdownload.soe.ucsc.edu/downloads.html and indexed with 'samtools faidx' command
 4. You need to have your data aligned to target genome (.bam files). Bam files should be sorted and indexed with samtools commands 'samtools sort' and 'samtools index'
 5. You need to define known mutations (VCF files) which will be used to calculate dataset sensitivity. Note, that VCF file should contain COUNT field in INFO section, representing allele count:
@@ -17,14 +17,16 @@ INSTALLATION
 
 0. Download EPHAGEN.zip
 1. Unzip files
-2. Check requirements (Perl libraries)
+2. Check requirements (Perl and R libraries)
    You may use cpan to install the necessary Perl modules:
    
 	   sudo cpan install Bio::DB::Sam
 	   sudo cpan install Bio::Cigar
 	   sudo cpan install Try::Tiny
 	   sudo cpan install Switch
-3. Run demo to check the installation
+   And R libraries:
+	   sudo su - -c "R -e \"install.packages('hash', repos='http://cran.rstudio.com/')\""
+3. Run demo (demo/run.sh) to check the installation	
    Enter demo directory, invoke run.sh and compare output with example output from the corresponding directory
 
 RUN EPHAGEN
