@@ -35,7 +35,7 @@ should be in concordance with reference genome file.
 
 =head1 ARGUMENTS
 
-=over 7
+=over 8
 
 =item --bam FILE
 
@@ -79,6 +79,10 @@ Path to output VCF file containing sensitivity analysis per each mutation site
 =item --sd [OPTIONAL]
 
 Skip downsample analysis (default FALSE)
+
+=item --p [OPTIONAL]
+
+Number of cores to use
 
 =back
 
@@ -159,7 +163,7 @@ sub usage() { pod2usage(-verbose => 1,
 #-------------------------------------------------------------------------------------------
 
 #print STDERR "$baseDir\n$refVCFDir\n";exit;
-my ($inputBam, $refFile, $refVCF, $outFile, $outVCF, $vcfREF, $skip_downsample);
+my ($inputBam, $refFile, $refVCF, $outFile, $outVCF, $vcfREF, $skip_downsample, $no_cores);
 my $help;
 
 GetOptions( "bam=s" => \$inputBam,
@@ -169,9 +173,18 @@ GetOptions( "bam=s" => \$inputBam,
 	"out=s" => \$outFile,
 	"out_vcf=s" => \$outVCF,
 	"skip_downsample|sd" => \$skip_downsample,
+	"proc|p" => $no_cores,
 	"help|h" => \$help) || usage();
 
-$skip_downsample //= 0;
+$skip_downsample	//= 0;
+$no_cores		//= 1;
+
+if (int($no_cores) ne $no_cores) {
+	die "Can't resolve argument 'number of cores' - must be positive integer\nExit status 1\n";
+	}
+if ($no_cores < 1) {
+	die "Can't resolve argument 'number of cores' - must be positive integer\nExit status 1\n";
+	}
 
 usage() if($help);
 usage() unless($argCount);
@@ -1036,7 +1049,7 @@ sub getSensR {
 	loadR($mutationHashR, $RinputHandle);
 	close $RinputHandle;
 	
-	`R --slave -f $statR --args $Rinput > $Routput 2> $Rlog`;
+	`R --slave -f $statR --args $Rinput $no_cores > $Routput 2> $Rlog`;
 	
 	open (my $RoutputHandle, "<", $Routput) or die "Can't open file $Routput for reading\nExit status 1\n";
 	my $sensR = readR($mutationHashR, $RoutputHandle);

@@ -1,12 +1,17 @@
+library(parallel)
+
 options(arn=-1)
 
 args <- commandArgs()
 
 inputFile <-args[6];
+no_cores  <-args[7];
 
-input <- scan(inputFile, what="", sep="\n")
+input <- scan(inputFile, what="", sep="\n", quiet=TRUE)
 givenData <- matrix(,0,3)	# allele frequency, km - coverage, error rate
 givenName <- c()
+dataList  <- list()
+n <- 1
 for (i in (1:(length(input)/3))) {
 	name <- unlist(strsplit(input[i*3-2], "\t"))[1]
 	p <- as.numeric(unlist(strsplit(input[i*3-2], "\t"))[3])
@@ -25,13 +30,17 @@ for (i in (1:(length(input)/3))) {
 		} else {
 		x2 <- NULL
 		}
+	element <- c()
 	if (length(c(x1,x2)) == 0) {
-		givenData <- rbind(givenData, c(p, 0, NA))
+		element <- c(p, 0, NA)
 		givenName <- c(givenName, name)
 		} else {
-		givenData <- rbind(givenData, c(p, length(c(x1,x2)), mean(c(x1,x2))))
+		element <- c(p, length(c(x1,x2)), mean(c(x1,x2)))
 		givenName <- c(givenName, name)
 		}
+	givenData <- rbind(givenData, c(element))
+	dataList[[n]] <- list(element[1], element[2], element[3], name)
+	n <- n + 1
 	}
 
 score <- function(score) {
@@ -138,46 +147,53 @@ coverSet <- function(cover, conf_pp) {
 	return(cSet)
 	}
 
-sens <- 0
-#print(givenData)
-for (i in (1:nrow(givenData))) {
+singleRun <- function(element) {
+	p	<- as.numeric(element[1])
+	error	<- as.numeric(element[3])
+	cover	<- as.numeric(element[2])
+	name	<- as.character(element[4])
 	sens_i	<- 0
-	p	<- givenData[i,1]
-	if (givenData[i,2] > 0) {
-		if (approxSens(givenData[i,2], givenData[i,1], givenData[i,3]) < 1e-6) {
-			sens_i <- 2*givenData[i,1]
-			sens <- sens + sens_i
-			cat(givenName[i],sens_i/2,p^2 + p * (1-p),"\n")
-			next
+	if (cover > 0) {
+		if (approxSens(cover, p, error) < 1e-6) {
+			return(list(name, p, p))
 			}
+		} else {
+		return(list(name, 0, p))
 		}
-	cSet <- coverSet(givenData[i,2], 0.99)
+	cSet <- coverSet(cover, 0.99)
 	for (ki in (1:nrow(cSet))) {
 		k	<- cSet[ki,1]
-		k_m	<- givenData[i,2]
+		k_m	<- cover
 		p_k	<- cSet[ki,2]
-#		cat(k, "(",k_m,") - ", p_k,"\n")
 		for (j in (0:k)) {
 			nref	<- k - j
 			nalt	<- j
-			error	<- unscore(givenData[i,3])
-#			cat(i," - ",p,"\t",k, "\t", j, "\t", indicatorG(0, nref, nalt, error, p),"-",dataProb(0, nref, nalt, error),"\t",indicatorG(1, nref, nalt, error, p),"-",dataProb(1, nref, nalt, error),"\n")
-#			cat(nref,"\t",nalt,"\t",error,"\t",p,"\t",genProb(0, nref, nalt, error, p),"\t",genProb(1, nref, nalt, error, p),"\n")
-			sens_i <- sens_i + 
-				p_k*dataProb(0, k-j, j, error) * 
-					indicatorG(0, k-j, j, error, givenData[i,1]) *
-					2 * p^2 + 
-				p_k*dataProb(1, k-j, j, error) *
-					indicatorG(1, k-j, j, error, givenData[i,1]) *
-					2 * p * (1-p)
+			errorL	<- unscore(error)
+			sens_i	<- sens_i +
+				p_k*dataProb(0, k - j, j, errorL) *
+					indicatorG(0, k-j, j, errorL, p) *
+					2 * p^2 +
+				p_k*dataProb(1, k - j, j, errorL) *
+					indicatorG(1, k-j, j, errorL, p) *
+					2 * p * (1 - p)
 			}
 		}
-	cat(givenName[i],sens_i/2,p^2 + p * (1-p),"\n")	
-	sens <- sens + sens_i
+	return(list(name, sens_i/2, p))
 	}
-sens <- sens/2
-cat(sens,"\n")
 
+c1 <- makeCluster(no_cores, type="FORK")
+result <- parLapply(c1, dataList, singleRun)
+stopCluster(c1)
+
+sens <- 0
+for(i in (1:length(result))) {
+	cat(as.character(result[[i]][1])," ",
+		as.numeric(result[[i]][2])," ",
+		as.numeric(result[[i]][3]),"\n"
+		)
+	sens <- sens + as.numeric(result[[i]][2])
+	}
+cat(sens,"\n")
 
 
 
