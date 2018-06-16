@@ -173,7 +173,7 @@ GetOptions( "bam=s" => \$inputBam,
 	"out=s" => \$outFile,
 	"out_vcf=s" => \$outVCF,
 	"skip_downsample|sd" => \$skip_downsample,
-	"proc|p" => $no_cores,
+	"p=s" => \$no_cores,
 	"help|h" => \$help) || usage();
 
 $skip_downsample	//= 0;
@@ -633,6 +633,7 @@ sub pipeline {
 				map {$qscore = $qscore + score($_)} @scores[($qscore_start)..($qscore_end)];
 				$qscore = $qscore / ($qscore_end - $qscore_start + 1);
 				next if $qscore >= score($qscore_min);
+				print STDERR "",($arg->[3])->[0],"\t$omat\n";
 				if ((($oref eq (($arg)->[1])) and ($oalt eq (($arg)->[1]))) or ($omat =~ /^\|*$/)) {
 					push (@{$dp[0]},$qscore);
 					} elsif (($oref eq (($arg)->[1])) and ($oalt eq (($arg)->[2]))) {
