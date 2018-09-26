@@ -35,6 +35,9 @@ genProb <- function(target, nref, nalt, error, p) {
 call <- function(nref, nalt, error, p) {
 	if (is.na(error)) {return(NA)}
 	probs <- c(genProb(0,nref,nalt,error,p), genProb(1,nref,nalt,error,p), genProb(2,nref,nalt,error,p))
+	if (probs[1] == "NaN") {return(NA)}
+	if (probs[2] == "NaN") {return(NA)}
+	if (probs[3] == "NaN") {return(NA)}
 	probMax <- max(probs)
 	for (ci in c(0,1,2)) {
 		if (probs[ci + 1] == probMax) {

@@ -35,7 +35,7 @@ should be in concordance with reference genome file.
 
 =head1 ARGUMENTS
 
-=over 8
+=over 9
 
 =item --bam FILE
 
@@ -78,11 +78,15 @@ Path to output VCF file containing sensitivity analysis per each mutation site
 
 =item --sd [OPTIONAL]
 
-Skip downsample analysis (default FALSE)
+Skip downsample analysis (default TRUE)
 
 =item --p [OPTIONAL]
 
 Number of cores to use
+
+=item --da [OPTIONAL]
+
+Degree of approximation of output sensitivity as number of decimals (default 3)
 
 =back
 
@@ -102,6 +106,7 @@ use Getopt::Long;
 use File::Spec;
 use Pod::Usage;
 use File::Basename;
+use Time::HiRes qw(gettimeofday);
 
 $| = 1;
 
@@ -162,7 +167,7 @@ sub usage() { pod2usage(-verbose => 1,
 #---    USER CONFIGURATION
 #-------------------------------------------------------------------------------------------
 
-my ($inputBam, $refFile, $refVCF, $outFile, $outVCF, $vcfREF, $skip_downsample, $no_cores);
+my ($inputBam, $refFile, $refVCF, $outFile, $outVCF, $vcfREF, $skip_downsample, $no_cores, $approx_degree);
 my $help;
 
 GetOptions( "bam=s" => \$inputBam,
@@ -173,10 +178,12 @@ GetOptions( "bam=s" => \$inputBam,
 	"out_vcf=s" => \$outVCF,
 	"skip_downsample|sd" => \$skip_downsample,
 	"p=s" => \$no_cores,
+	"da=s" => \$approx_degree,
 	"help|h" => \$help) || usage();
 
 $skip_downsample	//= 0;
 $no_cores		//= 1;
+$approx_degree		//= 3;
 
 if (int($no_cores) ne $no_cores) {
 	die "Can't resolve argument 'number of cores' - must be positive integer\nExit status 1\n";
@@ -237,9 +244,10 @@ if (opendir(TEMP, $tempDir)) {
 		}
 	}
 
-my $Rinput  = File::Spec->catfile($tempDir, "Rinput");
-my $Routput = File::Spec->catfile($tempDir, "Routput");
-my $Rlog = File::Spec->catfile($tempDir, "Rlog");
+my $indexR  = int(rand(89999)) + 10000;
+my $Rinput  = File::Spec->catfile($tempDir, "Rinput$indexR");
+my $Routput = File::Spec->catfile($tempDir, "Routput$indexR");
+my $Rlog = File::Spec->catfile($tempDir, "Rlog$indexR");
 
 if (defined($vcfREF)) {
 	if (defined $vcf_definition{$vcfREF}) {
@@ -802,10 +810,12 @@ sub log10 {
 
 sub format_af {
 	my $f		= shift;
+	my $degree	= shift;
+	$degree		//= 2;
 	my $i = 1;
 	my $c = 0;
 	while (1) {
-		if (int($i*$f) > 10) {
+		if (int($i*$f) > (10**($degree - 1))) {
 			my $s = log10($i);
 			my $nom = sprintf "%.${s}f",$f;
 			return $nom;
@@ -820,9 +830,10 @@ sub format_af {
 sub format_sens {
 	my $sens = shift;
 	if ($sens =~ /^(0?\.?[9]+[^9]{1}).*/) {
-		$sens = $1;
+#		$sens = $1;
+		$sens = format_af($sens, $approx_degree);
 		} else {
-		$sens = format_af($sens);
+		$sens = format_af($sens, $approx_degree);
 		}
 	return $sens;
 	}
@@ -861,8 +872,8 @@ sub write_vcf {
 				warn "$warn_line\n";
 				push @info, "ERROR";
 				}
-		push @info, "AF=".format_af(((($arg)->[4])/$count));
-		if ( @{(($arg)->[5])->{'error'}} ) {
+		push @info, "AF=".format_af(((($arg)->[4])/$count), 2);
+		if ((defined(((($arg)->[5])->{'error'})))and(@{(($arg)->[5])->{'error'}})) {
 			if ( grep(/hwe/,@{(($arg)->[5])->{'error'}}) )  {
 				} elsif ( grep(/mut/,@{(($arg)->[5])->{'error'}}) ) {
 				}
@@ -910,7 +921,7 @@ sub downsample_wrapper {
 		push (@avg_cov, average_coverage($mut_tmp));
 		
 		print $fileHandler "$low/$high\t";
-		print $fileHandler format_af(&average(\@avg_cov)),"\t";
+		print $fileHandler format_af(&average(\@avg_cov), 2),"\t";
 		print $fileHandler format_sens(&average(\@sens)),"\n";
 		
 		++$j;
@@ -1047,12 +1058,12 @@ sub readR {
 			$sens = $1;
 			}
 		}
-	die "Undefined Error 'readR1'\nExit status 1\n" unless $priorSum ne 1;
+#	die "Undefined Error 'readR1'- $priorSum\nExit status 1\n" unless $priorSum ne 1;
 	
 	foreach my $seq_id (keys %{$mutation_hash}) {
 		for (my $i = 0 ; $i < scalar @{($mutation_hash)->{$seq_id}}; $i++) {
 			my $name = (((($mutation_hash)->{$seq_id})->[$i])->[5])->{"name"};
-			die "Undefined Error 'readR2'\nExit status 1\n" unless (defined($SSS{$name}));
+			die "Undefined Error 'readR2' $Rinput $Routput\nExit status 1\n" unless (defined($SSS{$name}));
 			(((($mutation_hash)->{$seq_id})->[$i])->[5])->{"USSR"} = $SSS{$name};
 			(((($mutation_hash)->{$seq_id})->[$i])->[5])->{"coverR"} = $coverR{$name};
 			}
@@ -1107,8 +1118,11 @@ sub head {
 	print STDERR "Input parameters check: SUCCESS\n";
 	print STDERR "Loading data from input BAM file...\n";
 	
+	my ($s1, $usec1) = gettimeofday();					#TIME
 	my $mut1 = pipeline($mut, $sam);
 	loadPrior($mut1);
+	my ($s2, $usec2) = gettimeofday();					#TIME
+	print STDOUT "TIME=",$s2-$s1+int(($usec2-$usec1)/10000)/100,"\n";	#TIME
 	
 	if (checkName($mut1)) {
 		die "Undefined Error 'head1'\nExit status 1\n"
@@ -1117,21 +1131,44 @@ sub head {
 	print STDERR "Calculating sensitivity\n";
 	my $sensR;
 	($sensR, $mut1) = getSensR($mut1);
+	my ($s3, $usec3) = gettimeofday();					#TIME
+	print STDOUT "TIME=",$s3-$s2+int(($usec3-$usec2)/10000)/100,"\n";	#TIME
 	
 #	print STDERR "Calculating sensitivity...\n";
-	calling_wrapper($mut1);
+#	calling_wrapper($mut1);
 	
 	print $file_output "#READ FRACTION\tMEAN COVERAGE\tSENSITIVITY\n";
 	print $file_output "100/100\t";
-	print $file_output format_af(average_coverage($mut1)),"\t";
+	print $file_output format_af(average_coverage($mut1), 2),"\t";
 #	print $file_output format_sens(get_sens($mut1)),"\t";
 	print $file_output format_sens($sensR),"\n";
 	
-	downsample_wrapper($mut1, $downsample_config, $downsample_av_number, $file_output) unless $skip_downsample;
+	downsample_wrapper($mut1, $downsample_config, $downsample_av_number, $file_output) if $skip_downsample;
 	print STDERR "Writing VCF file...\n";
 	write_vcf($mut1, $version, $command, $refFile, $file_vcf);	
 	close $file_output;
 	close $file_vcf;
+
+	my $tmpFileRemove = deleteFile($Rinput) || deleteFile($Routput) || deleteFile($Rlog);
+	warn "Can't remove temporary files at $tempDir\n" if $tmpFileRemove;
+	}
+
+sub deleteFile {
+	my $file = shift;
+	if (open(DELETEFILE, "<$file")) {
+		close DELETEFILE;
+		my $command = `rm $file 2>&1`;
+		chomp $command;
+		if (length($command) > 1) {
+			if (open(DELETEFILE, "<$file")) {
+				close DELETEFILE;
+				return 1;
+				}
+			}
+		return 0;
+		} else {
+		return 0;
+		}
 	}
 
 sub average{
