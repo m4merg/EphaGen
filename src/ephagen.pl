@@ -78,7 +78,7 @@ Path to output VCF file containing sensitivity analysis per each mutation site
 
 =item --sd [OPTIONAL]
 
-Skip downsample analysis (default TRUE)
+Perform downsample analysis (default FALSE)
 
 =item --p [OPTIONAL]
 
@@ -183,7 +183,7 @@ GetOptions( "bam=s" => \$inputBam,
 
 $skip_downsample	//= 0;
 $no_cores		//= 1;
-$approx_degree		//= 3;
+$approx_degree		//= 2;
 
 if (int($no_cores) ne $no_cores) {
 	die "Can't resolve argument 'number of cores' - must be positive integer\nExit status 1\n";

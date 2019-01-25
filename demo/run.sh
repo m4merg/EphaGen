@@ -10,4 +10,5 @@ OUTDIR=.
 TOOLDIR=..
 
 cd $DATADIR
-perl $TOOLDIR/src/ephagen.pl --bam $DATADIR/data/demo_data.bam --ref $DATADIR/ref/brac.fasta --vcf $DATADIR/BRAC.vcf --out example_out.tsv --out_vcf example_out.vcf
+perl $TOOLDIR/src/ephagen.pl --bam $DATADIR/data/demo_data.bam --ref $DATADIR/ref/brac.fasta --vcf $DATADIR/BRAC.vcf --da 2 --out demo_out.tsv --out_vcf demo_out.vcf
+perl check_result.pl
