@@ -66,15 +66,19 @@ This will produce help message, describing required parameters and input files f
 Example usage:
 	   ephagen.pl --bam FILE --ref FILE --vcf FILE --out FILE --out_vcf FILE
 Where:
+
 	   --ref FILE
 	   	Path to reference genome fasta (required)
+		
 	   --bam FILE
 		Path to sample BAM file (required). BAM file should be aligned
 		to the reference specified with "--ref" option, sorted and indexed.
+		
 	   --vcf FILE
 		Path to VCF file with target mutations. Note that mutation positions
 		in VCF file should be in concordance with input reference genome file.
 		Required unless --vcf_ref used.
+		
 	   --out FILE
 		Path to output file containing result dataset sensitivity analysis results.
 		This is tab-separated file where first raw contains information on mean coverage
@@ -83,6 +87,7 @@ Where:
 		For each read fraction random sampling is performed several times. Mean sensitivity
 		is written for each read fraction. Mean coverage calculation
 		is carried only across defined mutation sites.
+		
 	   --out_vcf FILE
 		Path to output VCF file containing sensitivity analysis per each mutation site
 
@@ -91,15 +96,18 @@ Where:
 OUTPUT FILE DESCRIPTION
 
 EphaGen will produce two output files: general sensitivity analysis results in tsv format defined by "--out" option and VCF with probabilities for each mutation from input VCF file defined by "--out_vcf" option.
+
 General sensitivity analysis results provide sensitivity calculation results for each downsample iteration line by line. If no downsample was carried out, file contains only one line for 100% of reads. In addition to sensitivity mean coverage is provided.
 Output VCF file copies the input VCF files provided with "--vcf" option with INFO section is expanded. Field "SSS" is added into INFO section providing information for Single Site Sensitivity for each mutation:
+
 	   ##INFO=<ID=SSS,Number=R,Type=Float,Description="Single Site Sensitivity">
+	   
 Variants in the output VCF file are sorted based on the false negative rate in descending order.
 
 ---------------------------------------------------------------------------------------------------------------------------
 
 ****************LIMITATIONS OF USAGE****************
 
-		Please make sure that:
-	-	EphaGen handle only Single Nucleotide Variation, Multiple Nucleotide Variations (up to 50b.p. long), short insertions and deletions (up to 50b.p. long). Large genomic rearrangements, CNV, exon deletions and insertions are not supported.
-	-	Reference VCF files, stored in the /reference directory (for BRCA and CFTR pathogenic mutation analysis) are made based on databases BREAST CANCER INFORMATION CORE and CFTR2. Allele counts taken from these databases refer to general population and may be inappropriate for some populations, especially for minor populations. Moreover, allele frequency spectrum based on these allele counts can possess bias towards overrepresented variations.
+Please make sure that:
+-	EphaGen handle only Single Nucleotide Variation, Multiple Nucleotide Variations (up to 50b.p. long), short insertions and deletions (up to 50b.p. long). Large genomic rearrangements, CNV, exon deletions and insertions are not supported.
+-	Reference VCF files, stored in the /reference directory (for BRCA and CFTR pathogenic mutation analysis) are made based on databases BREAST CANCER INFORMATION CORE and CFTR2. Allele counts taken from these databases refer to general population and may be inappropriate for some populations, especially for minor populations. Moreover, allele frequency spectrum based on these allele counts can possess bias towards overrepresented variations.
