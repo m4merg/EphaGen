@@ -20,24 +20,39 @@ EphaGen is designed to be a stand alone command line application.
 EphaGen requires the following system utilities: git, R, cpan. Check and make sure these are installed on your systems.
 
 Go to a directory where EphaGen will be stored. Clone EphaGen from GitHub and then set EphaGen environment variable to point to where EphaGen is located
+
 	   git clone https://github.com/m4merg/EphaGen
+	   
 	   cd EphaGen
+	   
 	   EPHAGEN_HOME=`pwd`
 
 Install required perl and R libraries Check requirements:
+
 	   wget http://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2
+	   
 	   tar xjf samtools-0.1.19.tar.bz2 && cd samtools-0.1.19 && make CFLAGS=-fPIC
+	   
 	   export SAMTOOLS=`pwd`
+	   
 	   sudo cpan install Bio::DB::Sam
+	   
 	   cd ../
+	   
 	   rm -r $SAMTOOLS
+	   
 	   sudo cpan install Bio::Cigar
+	   
 	   sudo cpan install Try::Tiny
+	   
 	   sudo cpan install Switch
+	   
 	   sudo su - -c "R -e \"install.packages('hash', repos='http://cran.rstudio.com/')\""
 
 Run demo test to check the installation
+
 	   cd $EPHAGEN_HOME/demo
+	   
 	   ./run.sh
 
 Demo test should return Exit error status 0
