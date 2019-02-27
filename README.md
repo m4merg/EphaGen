@@ -1,5 +1,6 @@
 # EphaGen
 **EphaGen - a package to estimate NGS Dataset qualitity in terms of its ability to detect mutations of predefined spectrum**
+---------------------------------------------------------------------------------------------------------------------------
 
 REQUIREMENTS
 
@@ -12,6 +13,8 @@ REQUIREMENTS
 	INFO=<ID=COUNT,Number=R,Type=String,Description="Allele count">
    See example VCF files in the ./reference directory. Note that input VCF should be in concordance with genome build you've used for data alignment.
    You can use one of the reference files stored in the ./reference directory: for pathogenic BRCA1/2 mutation analysis or pathogenic CFTR mutation analysis
+
+---------------------------------------------------------------------------------------------------------------------------
 
 INSTALLATION
 
@@ -56,6 +59,8 @@ Run demo test to check the installation
 	   ./run.sh
 
 Demo test should return Exit error status 0
+
+---------------------------------------------------------------------------------------------------------------------------
 
 RUN EPHAGEN
 
