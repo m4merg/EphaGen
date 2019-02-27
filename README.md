@@ -64,6 +64,7 @@ To run EphaGen execute:
 	   perl $EPHAGEN_HOME/src/ephagen.pl
 
 This will produce help message, describing required parameters and input files for running EphaGen.
+
 Example usage:
 
 	   ephagen.pl --bam FILE --ref FILE --vcf FILE --out FILE --out_vcf FILE
