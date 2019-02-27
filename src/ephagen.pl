@@ -37,13 +37,14 @@ should be in concordance with reference genome file.
 
 =over 9
 
-=item --bam FILE
-
-Path to sample BAM file (required)
-
 =item --ref FILE
 
 Path to reference genome fasta (required)
+
+=item --bam FILE
+
+Path to sample BAM file (required). BAM file should be aligned 
+to the reference specified with "--ref" option, sorted and indexed.
 
 =item --vcf FILE
 
@@ -58,9 +59,10 @@ you can use one of the predefined files.
 Specify BRCA for pathogenic BRCA1/BRCA2 mutations 
 (as of Breast Cancer Information core, https://research.nhgri.nih.gov/bic/, May 2018).
 Specify CFTR for pathogenic CFTR mutation
-(as of CFTR2 database, https://www.cftr2.org/, December 2017)
+(as of CFTR2 database, https://www.cftr2.org/, December 2017).
 Note, that both files use hg19 human genome version as reference
 so your input BAM file should be aligned to the same reference
+For hg38 version of CFTR and BRCA variants files see ./reference directory.
 
 =item --out FILE
 
@@ -121,8 +123,8 @@ my $var_qual    = 20;
 my $downsample_av_number = 5;
 my $downsample_config = "80/100;60/100;40/100;20/100;10/100;5/100;1/100";
 my %vcf_definition = (
-        'BRCA' => "BRCA.vcf",
-        'CFTR' => "CFTR.vcf"
+        'BRCA' => "BRCA.hg19.vcf",
+        'CFTR' => "CFTR.hg19.vcf"
         );
 
 #-------------------------------------------------------------------------------------------
