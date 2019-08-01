@@ -121,6 +121,7 @@ my $qscore_min  = 15;
 my $qscore_averaging_range      = 2;
 my $var_qual    = 20;
 my $downsample_av_number = 5;
+my $mode = 'germline';
 my $downsample_config = "80/100;60/100;40/100;20/100;10/100;5/100;1/100";
 my %vcf_definition = (
         'BRCA' => "BRCA.hg19.vcf",
@@ -144,12 +145,14 @@ sub getAbsPath(\$) {
 my $baseDir;
 my $refVCFDir;
 my $tempDir;
-my $statR;
+my $statR_germline;
+my $statR_somatic;
 BEGIN {
 	my $thisDir=(File::Spec->splitpath($0))[1];
 	$thisDir = './' if ($thisDir eq "");
 	$baseDir=File::Spec->catdir($thisDir,File::Spec->updir());
-	$statR=File::Spec->catdir($thisDir,'stat.r');
+	$statR_germline=File::Spec->catdir($thisDir,'statG.r');
+	$statR_somatic=File::Spec->catdir($thisDir,'statS.r');
 	$refVCFDir=File::Spec->catdir($thisDir,File::Spec->updir(),'reference');
 	$tempDir=File::Spec->catdir($thisDir,File::Spec->updir(),'temp');
 	}
@@ -178,11 +181,13 @@ GetOptions( "bam=s" => \$inputBam,
 	"vcf_ref=s" => \$vcfREF,
 	"out=s" => \$outFile,
 	"out_vcf=s" => \$outVCF,
+	"somatic" => \$mode,
 	"skip_downsample|sd" => \$skip_downsample,
 	"p=s" => \$no_cores,
 	"da=s" => \$approx_degree,
 	"help|h" => \$help) || usage();
 
+if (defined $mode) {$mode = 'somatic'} else {$mode = 'germline'}
 $skip_downsample	//= 0;
 $no_cores		//= 1;
 $approx_degree		//= 2;
@@ -223,9 +228,14 @@ sub makeAbsoluteFilePaths(\$) {
 	$$filePathRef = File::Spec->catfile($fileDir,$fileName);
 	}
 
-$statR = abs_path($statR);
-makeAbsoluteFilePaths($statR);
-checkFileArg($statR,"stat.R");
+$statR_germline = abs_path($statR_germline);
+makeAbsoluteFilePaths($statR_germline);
+checkFileArg($statR_germline,"statG.r");
+
+$statR_somatic = abs_path($statR_germline);
+makeAbsoluteFilePaths($statR_somatic);
+checkFileArg($statR_somatic,"statS.r");
+
 
 $inputBam = abs_path($inputBam);
 makeAbsoluteFilePaths($inputBam);
@@ -610,6 +620,7 @@ sub pipeline {
 				#aps/ape - start/end position of variant site in alignment
 				#rps/rpe - start/end positions of variation site in reference
 				#qps/qpe - start/end positions of variation site in query(read)
+				warn "Could not parse tag values from alignment. Probably installed Bio::DB:Sam module is obsolete (required 1:43). Check your module version with \$cpan -D Bio::DB::Sam.";
 				next if $alignment->get_tag_values("SUPPLEMENTARY") eq '1';
 				next if $alignment->get_tag_values("UNMAPPED") eq '1';
 				next if $alignment->get_tag_values("NOT_PRIMARY") eq '1';
@@ -1081,7 +1092,13 @@ sub getSensR {
 	loadR($mutationHashR, $RinputHandle);
 	close $RinputHandle;
 	
-	`R --slave -f $statR --args $Rinput $no_cores > $Routput 2> $Rlog`;
+	if ($mode eq 'germline') {
+		`R --slave -f $statR_germline --args $Rinput $no_cores > $Routput 2> $Rlog`;
+		} elsif ($mode eq 'somatic') {
+		`R --slave -f $statR_somatic --args $Rinput $no_cores > $Routput 2> $Rlog`;
+		} else {
+		die "Could not parse mode option (somatic or germline model)\n"
+		}
 	
 	open (my $RoutputHandle, "<", $Routput) or die "Can't open file $Routput for reading\nExit status 1\n";
 	my $sensR = readR($mutationHashR, $RoutputHandle);
