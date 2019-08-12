@@ -121,7 +121,7 @@ my $qscore_min  = 15;
 my $qscore_averaging_range      = 2;
 my $var_qual    = 20;
 my $downsample_av_number = 5;
-my $mode = 'germline';
+my $mode;
 my $downsample_config = "80/100;60/100;40/100;20/100;10/100;5/100;1/100";
 my %vcf_definition = (
         'BRCA' => "BRCA.hg19.vcf",
@@ -232,7 +232,7 @@ $statR_germline = abs_path($statR_germline);
 makeAbsoluteFilePaths($statR_germline);
 checkFileArg($statR_germline,"statG.r");
 
-$statR_somatic = abs_path($statR_germline);
+$statR_somatic = abs_path($statR_somatic);
 makeAbsoluteFilePaths($statR_somatic);
 checkFileArg($statR_somatic,"statS.r");
 
@@ -620,8 +620,10 @@ sub pipeline {
 				#aps/ape - start/end position of variant site in alignment
 				#rps/rpe - start/end positions of variation site in reference
 				#qps/qpe - start/end positions of variation site in query(read)
-				warn "Could not parse tag values from alignment. Probably installed Bio::DB:Sam module is obsolete (required 1:43). Check your module version with \$cpan -D Bio::DB::Sam.";
-				next if $alignment->get_tag_values("SUPPLEMENTARY") eq '1';
+				#warn "Could not parse tag values from alignment. Probably installed Bio::DB:Sam module is obsolete (required 1:43). Check your module version with \$cpan -D Bio::DB::Sam.";
+				if (defined($alignment->get_tag_values("SUPPLEMENTARY"))) {
+					next if $alignment->get_tag_values("SUPPLEMENTARY") eq '1';
+					}
 				next if $alignment->get_tag_values("UNMAPPED") eq '1';
 				next if $alignment->get_tag_values("NOT_PRIMARY") eq '1';
 				my $qps; my $rps; my $aps; my $qpe; my $rpe; my $ape;
@@ -1092,6 +1094,7 @@ sub getSensR {
 	loadR($mutationHashR, $RinputHandle);
 	close $RinputHandle;
 	
+	print STDERR "Usage mode: $mode\n";
 	if ($mode eq 'germline') {
 		`R --slave -f $statR_germline --args $Rinput $no_cores > $Routput 2> $Rlog`;
 		} elsif ($mode eq 'somatic') {
@@ -1176,7 +1179,8 @@ sub deleteFile {
 	my $file = shift;
 	if (open(DELETEFILE, "<$file")) {
 		close DELETEFILE;
-		my $command = `rm $file 2>&1`;
+		my $command;
+		$command = `rm $file 2>&1`;
 		chomp $command;
 		if (length($command) > 1) {
 			if (open(DELETEFILE, "<$file")) {
