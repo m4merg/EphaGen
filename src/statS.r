@@ -80,8 +80,8 @@ singleRun <- function(element) {
 		k	<- cSet[ki,1]
 		k_m	<- cover
 		p_k	<- cSet[ki,2]
-		A_range <- k - round(k*0.05) + 1
-		for (j in (round(k*0.05):k)) {
+		A_range <- ceiling(k/2) - round(k*0.05) + 1
+		for (j in (round(k*0.05):ceiling(k/2))) {
 			nref	<- k - j
 			nalt	<- j
 			errorL	<- unscore(error)
