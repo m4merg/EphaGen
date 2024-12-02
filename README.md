@@ -120,3 +120,9 @@ Variants in the output VCF file are sorted based on the false negative rate in d
 Please make sure that:
 -	EphaGen handle only Single Nucleotide Variation, Multiple Nucleotide Variations (up to 50b.p. long), short insertions and deletions (up to 50b.p. long). Large genomic rearrangements, CNV, exon deletions and insertions are not supported.
 -	Reference VCF files, stored in the /reference directory (for BRCA and CFTR pathogenic mutation analysis) are made based on databases BREAST CANCER INFORMATION CORE and CFTR2. Allele counts taken from these databases refer to general population and may be inappropriate for some populations, especially for minor populations. Moreover, allele frequency spectrum based on these allele counts can possess bias towards overrepresented variations.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+****************CITATION****************
+
+Ivanov M, Ivanov M, Kasianov A, et al. Novel bioinformatics quality control metric for next-generation sequencing experiments in the clinical context. Nucleic Acids Res. 2019;47(21):e135. doi:10.1093/nar/gkz775
